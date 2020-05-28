@@ -1,13 +1,10 @@
-# Copyright (c) 2019, Krzysztof Rusek [^1], Paul Almasan [^2], Arnau Badia [^3]
+# Copyright (c) 2019, Krzysztof Rusek [^1], Paul Almasan [^2]
 #
 # [^1]: AGH University of Science and Technology, Department of
 #     communications, Krakow, Poland. Email: krusek\@agh.edu.pl
 #
 # [^2]: Universitat Politècnica de Catalunya, Computer Architecture
 #     department, Barcelona, Spain. Email: almasan@ac.upc.edu
-#
-# [^3]: Universitat Politècnica de Catalunya, Computer Architecture
-#     department, Barcelona, Spain. Email: abadia@ac.upc.edu
 
 
 from __future__ import print_function

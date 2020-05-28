@@ -1,0 +1,382 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://example.com/product.schema.json",
+    "title": "Model description",
+    "description": "The description of the model that the framework will use",
+    "type": "object",
+    "properties": 
+    {
+        "entities": {
+            "description": "Definition of the entities",
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "properties": {
+                  "name": {
+                      "description": "Name of the entity",
+                      "type": "string"
+                  },
+                  "hidden_state_dimension": {
+                      "description": "Size of the hidden state of this entity",
+                      "type": "number",
+                      "exclusiveMinimum": 0
+
+                  },
+                  "features": 
+                 {
+                    "type": "array",
+                    "items":
+                    {
+                        "description": "Feature names of this entity",
+                        "type": "object",
+                        "properties": 
+                        {
+                            "name": 
+                            {
+                                "description": "Name of the feature",
+                                "type": "string"
+                            },
+                            "size": 
+                            {
+                                "description": "Inner dimension of the feature spacee",
+                                "type": "number",
+                                "exclusiveMinimum": 0
+                            },
+                            "normalization":
+                            {
+                                "description": "What kind of regularization apply to this feature",
+                                "type": "string"
+                            }
+                        },
+                        "required": ["name"]
+                    }
+                  }
+              },
+              "required": ["name", "hidden_state_dimension", "features"]
+            }},
+
+        "message_passing": 
+        {
+            "description": "Message passing strategy",
+            "type": "object",
+            "properties": 
+            {
+                "num_iterations": 
+                {
+                    "description": "Number of iterations the algorithm",
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "architecture": 
+                {
+                    "type": "array",
+                    "items": 
+                    {
+                        "description": "Definition of each of the inner steps for each iteration",
+                        "type": "object",
+                        "properties": 
+                        {
+                            "step_name": {
+                                "type": "string"
+                            },
+                            "messages":
+                            {
+                                "type": "array",    
+                                "items": {
+                                    "description": "Definition of a single essage passing from source to destination",
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "description": "Type of message passing",
+                                            "type": "string",
+                                            "enum": ["individual", "combined"]
+                                        },
+                                        "source_entity": {
+                                            "description": "Name of the source entity sending the messages",
+                                            "type": "string"
+                                        },
+                                        "destination_entity": {
+                                            "description": "Name of the destination entity receiving the messages",
+                                            "type": "string"
+                                        },
+                                        "message_formation":
+                                        {
+                                            "type": "object",
+                                            "properties":
+                                            {
+                                                "message_neural_net":
+                                                {
+                                                    "type": "string",
+                                                    "enum": ["yes", "no"]
+                                                },
+                                                "number_extra_parameters":
+                                                {
+                                                    "type": "integer"
+                                                },
+                                                "architecture": 
+                                                {
+                                                    "type": "array",
+                                                    "items": 
+                                                    {
+                                                        "description": "Architecture of the readout model that shall be used for predictions.",
+                                                        "type": "object",
+                                                        "properties": 
+                                                        {
+                                                            "type": 
+                                                            {
+                                                                "description": "Type of layer",
+                                                                "type": "string",
+                                                                "enum": ["Dense", "Dropout"]
+                                                            },
+                                                            "name": 
+                                                            {
+                                                                "description": "Name given to this layer.",
+                                                                "type": "string"
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+
+                                            },
+                                            "if": {
+                                                "properties": { "message_neural_net": { "const": "yes" } }
+                                            },
+                                            "then": {
+                                                "required": ["architecture"]
+                                            },
+                                            "required": ["message_neural_net"]
+                                            
+                                        },
+                                        "agregation": {
+                                            "description": "How the messages are combined by the destination source",
+                                            "type": "string",
+                                            "enum": ["sum", "ordered", "combination", "attention"]
+                                        },
+                                        "update": 
+                                        {
+                                            "description": "How the hidden state of the destination entity is updated with the received messages.",
+                                            "type": "object",
+                                            "properties":
+                                            {
+                                                "update_type": 
+                                                {
+                                                    "type": "string",
+                                                    "enum": ["recurrent", "feed_forward"]
+                                                },
+                                                "recurrent_type": 
+                                                {
+                                                    "type": "string",
+                                                    "enum": ["GRU", "LSTM"]
+                                                },
+                                                "architecture": 
+                                                {
+                                                    "type": "array",
+                                                    "items": 
+                                                    {
+                                                        "description": "Architecture of the readout model that shall be used for predictions.",
+                                                        "type": "object",
+                                                        "properties": 
+                                                        {
+                                                            "type": 
+                                                            {
+                                                                "description": "Type of layer",
+                                                                "type": "string",
+                                                                "enum": ["Dense", "Dropout"]
+                                                            },
+                                                            "name": 
+                                                            {
+                                                                "description": "Name given to this layer.",
+                                                                "type": "string"
+                                                            }
+                                                        }
+                                                    }
+
+                                                }
+                                            },
+                                            "if": {
+                                                "properties": { "update_type": { "const": "recurrent" } }
+                                            },
+                                            "then": {
+                                                "required": ["recurrent_type"]
+                                            },
+                                            "else": {
+                                                "required": ["architecture"]
+                                            },
+                                            "required": ["update_type"]
+                                        },
+                                        "adj_vector": {
+                                            "description": "Name of the adjacency list which defines the adjacencies from the source to the destiantion entity.",
+                                            "type": "string"
+                                        }
+                                    },
+                                    "if": {
+                                        "properties": { "type": { "const": "combined" } },
+                                        "required": ["type"]
+                                    },
+                                    "then": {
+                                        "properties": { "agregation": {"const": "combination"}}
+                                    },
+                                    "else": {
+                                        "properties": {"agreagation": {"enum": ["sum", "ordered"]}},
+                                        "required": ["update"]
+                                    },
+                                    "required": ["type", "source_entity", "destination_entity", "agregation", "adj_vector", "message_formation"]
+                                    
+                                }
+                            }
+                        }
+                    }
+                },
+                "combined_message_passing_options":
+                {
+                    "type": "array",
+                    "items":
+                    {
+                        "description": "Combined message passing with several source entities to the same destination entity in the same step of the algorithm.",
+                        "type": "object",
+                        "properties": 
+                        {
+                            "step": {
+                                "description": "Step of the algorithm in which it is found",
+                                "type": "string"
+                            },
+                            "destination_entity": {
+                                "description": "Destination entity receiving messages from several source entities.",
+                                "type": "string"
+                            },
+                            "message_combination": {
+                                "description": "Describes how the messages received are combined.",
+                                "type": "string",
+                                "enum": ["concatenation", "interleave"]
+                            },
+                            "combination_definition": {
+                                "description": "Descrives how the interleaving is done",
+                                "type": "string"
+                            },
+                            "update": {
+                                "type":"object",
+                                "properties":
+                                {
+                                    "recurrent_type": 
+                                    {
+                                        "type":"string",
+                                        "enum": ["GRU", "LSTM"]
+                                    }
+                                },
+                                "required": ["recurrent_type"]
+                            }
+                        },
+                        "if": {
+                            "properties": { "message_combination": { "const": "interleave" } },
+                            "required": ["combination_definition"]
+                        },
+                        "required": ["step", "destination_entity", "message_combination", "update"]
+                    }
+                }
+
+            },
+            "required": ["num_iterations", "architecture"]
+        },
+        "output":
+        {
+            "type": "array",
+            "items": 
+            {
+                "description": "Readout model which will make predictions using the hidden states of one entity type",
+                "type": "object",
+                "properties": 
+                {
+                    "type": 
+                    {
+                        "description": "Type of prediction we want to make",
+                        "type": "string",
+                        "enum" : ["local", "global"]
+                    },
+                    "entity": 
+                    {
+                        "description": "Entity the hidden states of which we want to use for the prediction.",
+                        "type": "string"
+                    },
+                    "output_label": 
+                    {
+                        "description": "Label matching the dataset which contains the true labels of the predictions we aim to make.",
+                        "type": "string"
+                    },
+                    "output_normalization":
+                    {
+                        "description": "Normalization of the output",
+                        "type": "string"
+                    },
+                    "architecture": 
+                    {
+                        "type": "array",
+                        "items": {
+                            "description": "Architecture of the readout model that shall be used for predictions.",
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "description": "Type of layer",
+                                    "type": "string",
+                                    "enum": ["Dense", "Dropout"]
+                                },
+                                "name": {
+                                    "description": "Name given to this layer.",
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                    
+                },
+                "required": ["type", "entity", "output_label", "architecture"]
+            }
+        },
+        "training_hyperparameters":
+        {
+            "description": "Definition of training hyperparameters",
+            "type": "object",
+            "properties": 
+            {
+                "loss": 
+                {
+                    "description": "Name of the loss function to use",
+                    "type": "string"
+                },
+                "optimizer": 
+                {
+                    "description": "Name of the optimizer to use.",
+                    "type": "object",
+                    "properties":
+                    {
+                        "type":
+                        {
+                            "type": "string",
+                            "enum": ["Adam", "SGD"]
+                        }
+                    }
+                },
+                "schedule": 
+                {
+                    "description": "Name of the schedule to use",
+                    "type": "object",
+                    "properties": 
+                    {
+                        "type": 
+                        {
+                            "description": "Name of the schedule type",
+                            "type": "string",
+                            "enum": ["ExponentialDecay","PolynomialDecay"]
+                        }
+                    }
+                }
+
+            },
+            "required": ["loss", "optimizer"]
+
+        }
+
+    }
+}
+    

@@ -1,0 +1,179 @@
+{   
+    "entities": [
+        {
+            "name": "link",
+            "hidden_state_dimension": 32,
+            "features":[
+                {
+                    "name": "link_capacity",
+                    "normalization": "normalization_queue_size"
+                }
+            ]
+        },
+        {
+            "name": "path",
+            "hidden_state_dimension": 32,
+            "features":
+            [
+                {
+                    "name": "traffic",
+                    "normalization": "normalization_queue_size"
+                }
+            ]
+        },
+        {
+            "name": "node",
+            "hidden_state_dimension": 32,
+            "features":[
+                {
+                    "name": "queue_sizes",
+                    "normalization": "normalization_queue_size"
+                }
+            ]
+        }
+    ],
+
+    "message_passing":
+        {
+            "num_iterations": 8,
+
+            "architecture":
+            [
+                {
+                    "step_name": "step1",
+                    "messages":
+                    [
+                        {
+                            "type": "combined",
+                            "source_entity": "link",
+                            "destination_entity":"path",
+                            "message_formation": 
+                            {
+                                "message_neural_net": "no"
+                            },
+                            "agregation": "combination",
+                            "adj_vector": "adj_links_paths"
+                        },
+                        {
+                            "type": "combined",
+                            "source_entity": "node",
+                            "destination_entity":"path",
+                            "message_formation": 
+                            {
+                                "message_neural_net": "no"
+                            },
+                            "agregation": "combination",
+                            "adj_vector": "adj_nodes_paths"
+                        }
+                    ]
+                },
+                {
+                    "step_name": "step2",
+                    "messages":
+                    [
+                        {
+                            "type": "individual",
+                            "source_entity": "path",
+                            "destination_entity":"link",
+                            "message_formation": 
+                            {
+                                "message_neural_net": "no"
+                            },
+                            "agregation": "sum",
+                            "update": 
+                            {
+                                "update_type": "recurrent",
+                                "recurrent_type": "GRU"
+                            },
+                            "adj_vector": "adj_paths_links"
+                        },
+                        {
+                            "type": "individual",
+                            "source_entity": "path",
+                            "destination_entity":"node",
+                            "message_formation": 
+                            {
+                                "message_neural_net": "no"
+                            },
+                            "agregation": "sum",
+                            "update": 
+                            {
+                                "update_type": "recurrent",
+                                "recurrent_type": "GRU"
+                            },
+                            "adj_vector": "adj_paths_nodes"
+                        }
+                    ]
+                }
+            ],
+            "combined_message_passing_options":
+            [
+                {
+                    "step": "step1",
+                    "destination_entity": "path",
+                    "message_combination":"interleave",
+                    "combination_definition": "path_interleave",
+                    "update":
+                    {
+                        "recurrent_type": "GRU"
+                    }
+                }
+            ]
+        },
+
+
+    "output": 
+        [
+        {
+            "type": "local",
+            "entity": "path",
+            "output_label": "delay",
+            "output_normalization": "normalization_queue_size",
+            "architecture":[
+                    {
+                        "name": "Primer_dense_layer",
+                        "type":"Dense",
+                        "units": 256,
+                        "activation": "selu"
+                    },
+                    {
+                        "name": "Primer_dropout_layer",
+                        "type":"Dropout",
+                        "rate":0.5
+                    },
+                    {
+                        "type":"Dense",
+                        "units": 256,
+                        "activation": "selu"
+                    },
+                    {
+                        "type":"Dropout",
+                        "name": "Segon_dropout_layer",
+                        "rate":0.5
+                    },
+                    {
+                        "type":"Dense",
+                        "name": "Output_layer",
+                        "units": 1,
+                        "activation": "selu"
+                    }
+                ]
+        }],
+        
+        "training_hyperparameters":
+        {
+            "loss": "MeanSquaredError",
+            "optimizer":
+            {
+                "type": "Adam"
+            },
+            "schedule": 
+            {
+                "type": "ExponentialDecay",
+                "initial_learning_rate":0.001,
+                "decay_steps":82000,
+                "decay_rate":0.8
+            }
+        }
+
+}

@@ -60,12 +60,12 @@ def normalization(x, feature_list, output_names, output_normalizations,y=None):
         f_name = f.name
         norm_type = f.normalization
 
-    if norm_type != 'None':
-        try:
-            x[f_name] = eval(norm_type)(x[f_name], f_name)
-        except:
-            tf.compat.v1.logging.error('IGNNITE: The normalization function ' + norm_type + ' is not defined in the main file.')
-            sys.exit(1)
+        if norm_type != 'None':
+            try:
+                x[f_name] = eval(norm_type)(x[f_name], f_name)
+            except:
+                tf.compat.v1.logging.error('IGNNITE: The normalization function ' + norm_type + ' is not defined in the main file.')
+                sys.exit(1)
 
 
     #this normalization is only ready for one single output !!!

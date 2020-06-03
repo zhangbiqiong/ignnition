@@ -227,7 +227,7 @@ class ComnetModel(tf.keras.Model):
                                         layer = l.get_tensorflow_object(l_previous)
                                         setattr(self, str(var_name) + "_layer_" + str(layer_counter), layer)
                                     except:
-                                        tf.compat.v1.logging.error('IGNNITION: The layer ' + layer_counter + ' of the message creation neural network in message passing ' + message[0] +
+                                        tf.compat.v1.logging.error('IGNNITION: The layer ' + layer_counter + ' of the message creation neural network in the message passing from ' + message.source_entity + ' to ' + message.destination_entity +
                                                                    ' is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
                                         sys.exit(1)
 
@@ -255,7 +255,7 @@ class ComnetModel(tf.keras.Model):
                                     setattr(self, str(dst_entity)+'_update', recurrent_instance)
                                 except:
                                     tf.compat.v1.logging.error(
-                                        'IGNNITION: The definition of the recurrent cell in message passsing ' + message[0] +
+                                        'IGNNITION: The definition of the recurrent cell in message passsing from ' + message.source_entity + ' to ' + message.destination_entity +
                                         ' is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
                                     sys.exit(1)
 
@@ -290,7 +290,7 @@ class ComnetModel(tf.keras.Model):
                                             setattr(self, str(var_name) + "_layer_" + str(layer_counter), layer)
                                         except:
                                             tf.compat.v1.logging.error(
-                                                'IGNNITION: The layer ' + layer_counter + ' of the update neural network in message passing ' + message[0] +
+                                                'IGNNITION: The layer ' + layer_counter + ' of the update neural network in message passing from ' + message.source_entity + ' to ' + message.destination_entity +
                                                 ' is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
                                             sys.exit(1)
 
@@ -344,8 +344,7 @@ class ComnetModel(tf.keras.Model):
                             setattr(self, str(var_name)+"_layer_"+str(layer_counter), layer)
                         except:
                             tf.compat.v1.logging.error(
-                                'IGNNITION: The layer ' + layer_counter + ' of the update neural network in message passing ' + message[0] +
-                                ' is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
+                                'IGNNITION: The layer ' + str(layer_counter) + ' of the readout is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
                             sys.exit(1)
 
                         layer_counter += 1

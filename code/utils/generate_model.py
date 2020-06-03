@@ -64,7 +64,7 @@ def normalization(x, feature_list, output_names, output_normalizations,y=None):
             try:
                 x[f_name] = eval(norm_type)(x[f_name], f_name)
             except:
-                tf.compat.v1.logging.error('IGNNITE: The normalization function ' + norm_type + ' is not defined in the main file.')
+                tf.compat.v1.logging.error('IGNNITION: The normalization function ' + norm_type + ' is not defined in the main file.')
                 sys.exit(1)
 
 
@@ -78,7 +78,7 @@ def normalization(x, feature_list, output_names, output_normalizations,y=None):
                 try:
                     y = eval(norm_type)(y, output_names[i])
                 except:
-                    tf.compat.v1.logging.error('IGNNITE: The normalization function ' + norm_type + ' is not defined in the main file.')
+                    tf.compat.v1.logging.error('IGNNITION: The normalization function ' + norm_type + ' is not defined in the main file.')
                     sys.exit(1)
         return x, y
 
@@ -227,7 +227,7 @@ class ComnetModel(tf.keras.Model):
                                         layer = l.get_tensorflow_object(l_previous)
                                         setattr(self, str(var_name) + "_layer_" + str(layer_counter), layer)
                                     except:
-                                        tf.compat.v1.logging.error('IGNNITE: The layer ' + layer_counter + ' of the message creation neural network in message passing ' + message[0] +
+                                        tf.compat.v1.logging.error('IGNNITION: The layer ' + layer_counter + ' of the message creation neural network in message passing ' + message[0] +
                                                                    ' is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
                                         sys.exit(1)
 
@@ -255,7 +255,7 @@ class ComnetModel(tf.keras.Model):
                                     setattr(self, str(dst_entity)+'_update', recurrent_instance)
                                 except:
                                     tf.compat.v1.logging.error(
-                                        'IGNNITE: The definition of the recurrent cell in message passsing ' + message[0] +
+                                        'IGNNITION: The definition of the recurrent cell in message passsing ' + message[0] +
                                         ' is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
                                     sys.exit(1)
 
@@ -290,7 +290,7 @@ class ComnetModel(tf.keras.Model):
                                             setattr(self, str(var_name) + "_layer_" + str(layer_counter), layer)
                                         except:
                                             tf.compat.v1.logging.error(
-                                                'IGNNITE: The layer ' + layer_counter + ' of the update neural network in message passing ' + message[0] +
+                                                'IGNNITION: The layer ' + layer_counter + ' of the update neural network in message passing ' + message[0] +
                                                 ' is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
                                             sys.exit(1)
 
@@ -317,7 +317,7 @@ class ComnetModel(tf.keras.Model):
                         setattr(self, str(dst_entity) + '_combined_update', recurrent_instance)
                     except:
                         tf.compat.v1.logging.error(
-                            'IGNNITE: The definition of the recurrent cell in message passsing ' )
+                            'IGNNITION: The definition of the recurrent cell in message passsing ' )
                         sys.exit(1)
 
 
@@ -344,7 +344,7 @@ class ComnetModel(tf.keras.Model):
                             setattr(self, str(var_name)+"_layer_"+str(layer_counter), layer)
                         except:
                             tf.compat.v1.logging.error(
-                                'IGNNITE: The layer ' + layer_counter + ' of the update neural network in message passing ' + message[0] +
+                                'IGNNITION: The layer ' + layer_counter + ' of the update neural network in message passing ' + message[0] +
                                 ' is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
                             sys.exit(1)
 
@@ -445,7 +445,7 @@ class ComnetModel(tf.keras.Model):
                                          if message.message_formation.num_extra_parameters != 0:
                                              params = tf.cast(input['params_'+ message.adj_vector], tf.float32)
                                              #if tf.shape(params)[0] != message.message_formation.num_extra_parameters:
-                                                 #tf.compat.v1.logging.error('IGNNITE: The number of parameters for adjacency ' + message.adj_vector + ' was supposed to be ' +
+                                                 #tf.compat.v1.logging.error('IGNNITION: The number of parameters for adjacency ' + message.adj_vector + ' was supposed to be ' +
                                                  #                           str(message.message_formation.num_extra_parameters) + ' but it was of ' + tf.size(params) + ' instead.')
                                              #    sys.exit(1)
 
@@ -455,7 +455,7 @@ class ComnetModel(tf.keras.Model):
 
                                      else:
                                          pass
-                                         #tf.compat.v1.logging.warn('IGNNITE: Only the hidden states of ' + dst_name + ' will be considered. Any extra parameter will be ignored.')
+                                         #tf.compat.v1.logging.warn('IGNNITION: Only the hidden states of ' + dst_name + ' will be considered. Any extra parameter will be ignored.')
 
 
                                  #treating the individual message passings
@@ -755,7 +755,7 @@ def model_fn(features,labels,mode):
         try:
             predictions = eval(output_denormalizations[0])(predictions)
         except:
-            tf.compat.v1.logging.warn('IGNNITE: A denormalization function for output ' + output_names[0] + ' was not defined. The output will be normalized.')
+            tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_names[0] + ' was not defined. The output will be normalized.')
 
 
         return tf.estimator.EstimatorSpec(
@@ -785,7 +785,7 @@ def model_fn(features,labels,mode):
             labels = eval(output_denormalizations[0])(labels, output_names[0])
             predictions = eval(output_denormalizations[0])(predictions, output_names[0])
         except:
-            tf.compat.v1.logging.warn('IGNNITE: A denormalization function for output ' + output_names[0] + ' was not defined. The output will be normalized.')
+            tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_names[0] + ' was not defined. The output will be normalized.')
 
 
         #metrics calculations

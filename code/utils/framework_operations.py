@@ -50,7 +50,7 @@ def train_and_evaluate(model):
         Object with the json information model
     """
     print()
-    tf.compat.v1.logging.warn('IGNNITE: Starting the training and evaluation process...\n---------------------------------------------------------------------------\n')
+    tf.compat.v1.logging.warn('IGNNITION: Starting the training and evaluation process...\n---------------------------------------------------------------------------\n')
     set_model_info(model)
 
     filenames_train = CONFIG['PATHS']['train_dataset']
@@ -108,7 +108,7 @@ def predict(model):
         Object with the json information model
     """
     print()
-    tf.compat.v1.logging.warn('IGNNITE: Starting to make the predictions...\n---------------------------------------------------------\n')
+    tf.compat.v1.logging.warn('IGNNITION: Starting to make the predictions...\n---------------------------------------------------------\n')
     set_model_info(model)
 
     graph = tf.Graph()
@@ -117,13 +117,13 @@ def predict(model):
     try:
      warm_path = CONFIG['PATHS']['warm_start_path']
     except:
-     tf.compat.v1.logging.error('IGNNITE: The path of the model to use for the predictions is unspecified')
+     tf.compat.v1.logging.error('IGNNITION: The path of the model to use for the predictions is unspecified. Please add a field warm_start_path in the train_options.ini with the corresponding path to the model you want to restore.')
      sys.exit(0)
 
     try:
      data_path = CONFIG['PATHS']['predict_dataset']
     except:
-     tf.compat.v1.logging.error('IGNNITE: The path of dataset to use for the prediction is unspecified')
+     tf.compat.v1.logging.error('IGNNITION: The path of dataset to use for the prediction is unspecified. Please add a field predict_dataset in the train_config.ini file with the corresponding path to the dataset you want to predict.')
      sys.exit(0)
 
 
@@ -132,7 +132,7 @@ def predict(model):
 
      it = tfrecord_input_fn(data_path, training=False)  #this should not return a label since we might not have one!!!!!!!!!!!!
      features = it.get_next()
-     predictions = model(features, training=False)
+     predictions = model(features, training=False)  #this predictions still need to be denormalized (or to do the predictions with the estimators)
 
     with tf.compat.v1.Session(graph=graph) as sess:
      sess.run(tf.compat.v1.local_variables_initializer())
@@ -165,7 +165,7 @@ def debug(model_description):
     """
 
     print()
-    tf.compat.v1.logging.warn('IGNNITE: Generating the debug model... \n---------------------------------------------------------\n')
+    tf.compat.v1.logging.warn('IGNNITION: Generating the debug model... \n---------------------------------------------------------\n')
     set_model_info(model_description)
 
     filenames_train = CONFIG['PATHS']['train_dataset']
@@ -185,5 +185,5 @@ def debug(model_description):
         sess.run(it.initializer)
 
     tf.compat.v1.summary.FileWriter('../debug_model/', graph=sess.graph)
-    tf.compat.v1.logging.warn('IGNNITE: The debug model has been generated.')
+    tf.compat.v1.logging.warn('IGNNITION: The debug model has been generated.')
 

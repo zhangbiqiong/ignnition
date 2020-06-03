@@ -89,7 +89,7 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
             try:
                 features = tar.extractfile('data.txt')
             except:
-                tf.compat.v1.logging.error('FRAMEWORK: The file data.txt was not found in ', sample_file )
+                tf.compat.v1.logging.error('IGNNITION: The file data.txt was not found in ', sample_file )
                 sys.exit(1)
 
 
@@ -217,5 +217,5 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
                     yield data,output
 
         except Exception as inf:
-            tf.compat.v1.logging.error('FRAMEWORK: ' + inf)
+            tf.compat.v1.logging.error('IGNNITION: ' + inf)
             sys.exit(1)

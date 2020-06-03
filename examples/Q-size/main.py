@@ -24,7 +24,7 @@ sys.path.append('./utils/')
 import framework
 
 
-def normalization_q_size(feature, feature_name):
+def normalization_queue_size(feature, feature_name):
     if feature_name == 'delay':
         feature = (tf.math.log(feature) + 1.78) / 0.93
     if feature_name == 'traffic':

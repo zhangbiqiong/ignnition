@@ -71,6 +71,7 @@ def normalization(x, feature_list, output_names, output_normalizations,y=None):
     #this normalization is only ready for one single output !!!
     if y != None:   #if we have labels to normalize
         n = len(output_names)
+
         for i in range(n):
             norm_type = output_normalizations[i]
 
@@ -82,8 +83,8 @@ def normalization(x, feature_list, output_names, output_normalizations,y=None):
                     sys.exit(1)
         return x, y
 
-    else:
-        return x
+
+    return x
 
 
 
@@ -483,7 +484,7 @@ class ComnetModel(tf.keras.Model):
 
                                              lens = tf.math.unsorted_segment_sum(tf.ones_like(destinations),
                                                                                  destinations,
-                                                                                 num_dst)  # destinations should be in order
+                                                                                 num_dst)  # destinations should be in order. CHECK!!
 
                                              source_input = tf.scatter_nd(ids, h_states, shape)
 
@@ -569,6 +570,7 @@ class ComnetModel(tf.keras.Model):
                                                  outputs, new_state = gru_rnn(inputs=source_input, initial_state=old_state,mask=tf.sequence_mask(lens))
                                                  setattr(self, str(dst_name) + '_state', new_state)
 
+
                                      #feed-forward update:
                                      #restriction: It can only be used if the aggreagation was ordered.
                                      elif message.update_type == 'feed_forward':
@@ -584,11 +586,16 @@ class ComnetModel(tf.keras.Model):
 
                                 #Treat the combined message passings' aggregation. Only pre-processing
                                  else:
+
+                                     #--------------------------------------------
+                                     #aggregation
+
                                      #sum aggreagtion
                                      if message.agregation == 'sum':
                                          with tf.name_scope('combined_sum_preprocessing' + src_name) as _:
                                              m = tf.math.unsorted_segment_sum(h_states, destinations,num_dst)  # m is the aggregated values. Sum together the values belonging to the same path
                                              setattr(self, str(src_name) + '_sum_combined', m)
+
 
                                      #combination aggreagation
                                      elif message.agregation == 'combination':
@@ -610,6 +617,10 @@ class ComnetModel(tf.keras.Model):
 
                                              setattr(self, 'lens_' + str(src_name), lens)
 
+
+
+                         #---------------------------------
+                         #Combined message passings
 
                          #update for each of the combined message passing
                          combined_models = model_info.get_combined_mp_options() #improve
@@ -654,29 +665,30 @@ class ComnetModel(tf.keras.Model):
                                              first = True
                                              for src_name in combine_sources:
                                                  with tf.name_scope('add_' + src_name) as _:
-                                                     len = getattr(self, 'lens_' + str(src_name))
+                                                     len = getattr(self, 'lens_' + str(src_name))   #this is the vector with lens of each destination
 
-                                                     s = getattr(self, str(src_name) + '_to_' + str(dst_name) +  '_combined_')
+                                                     s = getattr(self, str(src_name) + '_to_' + str(dst_name) +  '_combined_')  #input
 
                                                      #form the pattern to be used for the interleave
                                                      indices_source = input["indices_" + src_name + '_to_' + dst_name]
                                                      if first:
                                                          first = False
-                                                         sources_input = s
+                                                         sources_input = s  # sources x max of dest x dim source
                                                          indices = indices_source
                                                          final_len = len
                                                      else:
                                                          sources_input = tf.concat([sources_input, s], axis = 1)
                                                          indices = tf.stack([indices, indices_source], axis = 0)
-                                                         final_len = tf.math.add(final_len, len)
+                                                         final_len = tf.math.add(final_len, len)    #check this len? We just sum the max of each of them?
 
                                              #place each of the messages into the right spot in the sequence defined
                                              with tf.name_scope('order_sources_from_' + dst_name) as _:
-                                                 sources_input = tf.transpose(sources_input, perm =[1,0,2]) #sum of sources x num dest x dim source
+                                                 sources_input = tf.transpose(sources_input, perm =[1,0,2]) #destinations x length x dim_source ->  (length x destinations x dimension_source)
                                                  indices = tf.reshape(indices, [-1, 1])
 
                                                  sources_input = tf.scatter_nd(indices, sources_input, tf.shape(sources_input, out_type=tf.int64))
-                                                 sources_input = tf.transpose(sources_input, perm=[1, 0, 2])
+
+                                                 sources_input = tf.transpose(sources_input, perm=[1, 0, 2])    #destinations x length x dim_source
 
 
                                              #update with the obtained messages forming the desired sequence
@@ -689,6 +701,7 @@ class ComnetModel(tf.keras.Model):
                                                  outputs, new_state = gru_rnn(inputs=sources_input, initial_state=old_state, mask=tf.sequence_mask(final_len))
 
                                                  setattr(self, str(dst_name) + '_state', new_state)
+
 
 
         #perform the predictions

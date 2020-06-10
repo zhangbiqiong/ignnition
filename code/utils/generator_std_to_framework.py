@@ -192,23 +192,25 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
                     total_size = 0
                     n_total = 0
                     counter = 0
+                    total_sequence = []
                     for entity in interleave_definition:
                         total_size += 1
                         if entity not in involved_entities:
-                            involved_entities[entity] = counter
+                            involved_entities[entity] = counter #each entity a different value
 
                             seq = dict['seq_' + entity + '_' + dst_entity]
-                            n_total += max(seq) + 1
+                            n_total += max(seq) + 1 #superior limit of the size of any destination
                             counter +=1
 
-                    repetitions = math.ceil(float(n_total) / total_size )   #we exceed the length for sake to make it multiple. Then we will cut it
-                    result = [involved_entities[e] for e in interleave_definition]
-                    result = np.array((result * repetitions)[:n_total])
+                        total_sequence.append(involved_entities[entity])    #obtain all the original definition in a numeric format
 
-                    id = 0
+
+                    repetitions = math.ceil(float(n_total) / total_size )   #we exceed the length for sake to make it multiple. Then we will cut it
+                    result = np.array((total_sequence * repetitions)[:n_total])
+
                     for entity in involved_entities:
+                        id = involved_entities[entity]
                         data['indices_' + entity + '_to_' + dst_entity] = np.where(result == id)[0].tolist()
-                        id += 1
 
 
                 if not training:

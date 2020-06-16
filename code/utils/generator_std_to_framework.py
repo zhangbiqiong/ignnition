@@ -87,14 +87,14 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
         try:
             tar = tarfile.open(sample_file, 'r:gz')  #read the tar files
             try:
-                features = tar.extractfile('data.txt')
+                file_samples = tar.extractfile('data.json')
             except:
                 tf.compat.v1.logging.error('IGNNITION: The file data.txt was not found in ', sample_file )
                 sys.exit(1)
 
 
-            features = json.load(features)
-            for sample in features:
+            file_samples = json.load(file_samples)
+            for sample in file_samples:
                 data = {}
                 output = []
 
@@ -111,7 +111,11 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
                         if name not in sample:
                             raise Exception('A list for the output named ' + str(name) + ' was not found although being expected.')
                         else:
-                            output += sample[name]
+                            value = sample[name]
+                            if not isinstance(value, list):
+                                value = [value]
+
+                            output += value
 
                 dict = {}
 

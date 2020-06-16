@@ -77,7 +77,9 @@ def normalization(x, feature_list, output_names, output_normalizations,y=None):
 
             if norm_type != 'None':
                 try:
+                    print(y)
                     y = eval(norm_type)(y, output_names[i])
+                    print(y)
                 except:
                     tf.compat.v1.logging.error('IGNNITION: The normalization function ' + norm_type + ' is not defined in the main file.')
                     sys.exit(1)

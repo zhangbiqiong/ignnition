@@ -230,8 +230,12 @@ class Message_Passing:
         if 'message_formation' in m:
             self.formation_type = self.find_type_of_message_creation(m['message_formation']['message_neural_net'])
 
+            if 'number_extra_parameters' in m['message_formation']:
+                self.extra_parameters = m['message_formation']['number_extra_parameters']
+
             if self.formation_type == 'feed_forward':
                 self.message_formation = self.create_message_formation(m['message_formation'])
+
 
     def create_update(self,dict):
         """
@@ -285,7 +289,7 @@ class Message_Passing:
     def get_instance_info(self):
         ordered = str((self.agregation == 'ordered') or (self.agregation == 'combination') or (self.agregation == 'attention'))
 
-        return [self.adj_vector, self.source_entity, self.destination_entity, ordered, str(self.extra_parameters)]
+        return [self.adj_vector, self.source_entity, self.destination_entity, ordered, str(self.extra_parameters > 0)]
 
     #SETTERS
     def set_message_formation(self, message_neural_net, number_extra_parameters = 0):

@@ -63,7 +63,7 @@
                                     {
                                         "type":"Dense",
                                         "kernel_regularizer": 0.01,
-                                        "units": 1
+                                        "units": 32
                                     }
                                 ]
                             },
@@ -88,6 +88,7 @@
             "entity": "atom",
             "output_label": "mu",
             "output_normalization": "norm_mu",
+            "output_denormalization": "denorm_mu",
             "architecture":
             [
                 {

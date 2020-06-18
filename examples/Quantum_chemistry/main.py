@@ -25,9 +25,13 @@ import framework
 
 
 def norm_mu(feature, feature_name):
-    if feature_name == 'mu':
-        feature = (feature - 1) / 1
+    feature = (feature - 2.70426) / 1.52855
     return feature
+
+def denorm_mu(feature, feature_name):
+    feature = (feature * 1.52855) + 2.70426
+    return feature
+
 
 def main():
     model = framework.create_model()

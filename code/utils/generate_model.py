@@ -230,7 +230,7 @@ class ComnetModel(tf.keras.Model):
                                         layer = l.get_tensorflow_object(l_previous)
                                         setattr(self, str(var_name) + "_layer_" + str(layer_counter), layer)
                                     except:
-                                        tf.compat.v1.logging.error('IGNNITION: The layer ' + layer_counter + ' of the message creation neural network in the message passing from ' + message.source_entity + ' to ' + message.destination_entity +
+                                        tf.compat.v1.logging.error('IGNNITION: The layer ' + str(layer_counter) + ' of the message creation neural network in the message passing from ' + message.source_entity + ' to ' + message.destination_entity +
                                                                    ' is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
                                         sys.exit(1)
 
@@ -273,7 +273,7 @@ class ComnetModel(tf.keras.Model):
                                 with tf.name_scope(dst_entity + '_ff_update') as _:
 
                                     #input is the aggregated hs of the sources concat with the current dest. hs
-                                    input_dimension = int(self.entities_dimensions[src_entity] + self.entities_dimensions[dst_entity])
+                                    input_dimension = int(self.entities_dimensions[src_entity]) + int(self.entities_dimensions[dst_entity])
 
                                     setattr(self, str(var_name) + "_layer_" + str(0), tf.keras.Input(shape=(input_dimension,)))
 

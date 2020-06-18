@@ -255,7 +255,7 @@ class Message_Passing:
             return Recurrent_Cell(dict['recurrent_type'], parameters)
 
         elif dict['update_type'] == 'feed_forward':
-            f = Feed_forward_model({'architecture':dict['architecture']})
+            f = Feed_forward_model({'architecture':dict['architecture']}, model_role="update")
             return f
 
     def find_type_of_message_creation(self, type):
@@ -347,7 +347,7 @@ class Message_Passing:
             self.update = Recurrent_Cell(recurrent_type, parameters)
 
         elif update_type == 'feed_forward':
-            self.update = Feed_forward_model({'architecture':{}})
+            self.update = Feed_forward_model({'architecture':{}},model_role="update")
 
 
     def add_update_layer(self, **dict):
@@ -483,7 +483,7 @@ class Feed_forward_model:
 
     """
 
-    def __init__(self, model):
+    def __init__(self, model,model_role):
         """
         Parameters
         ----------
@@ -499,7 +499,7 @@ class Feed_forward_model:
             for l in dict:
                 type = l['type']
                 if 'name' not in l:
-                    l['name'] = 'layer_' + str(self.counter) + '_' + str(l['type'])
+                    l['name'] = 'layer_' + str(self.counter) + '_' + str(l['type']+'_'+str(model_role))
                 del l['type']  #leave only the parameters of the layer
 
                 layer = Feed_forward_Layer(type, l)
@@ -553,7 +553,7 @@ class Feed_forward_message_creation(Feed_forward_model):
             Extra parameters to be used from the dataset
         """
 
-        super(Feed_forward_message_creation, self).__init__({'architecture':architecture})
+        super(Feed_forward_message_creation, self).__init__({'architecture':architecture}, model_role="message_creation")
         self.num_extra_parameters = num_parameter
 
 
@@ -581,7 +581,7 @@ class Readout_model(Feed_forward_model):
             Dictionary with the readout_model parameters
         """
 
-        super(Readout_model, self).__init__(output)
+        super(Readout_model, self).__init__(output, model_role="readout")
         self.type = output['type']
         self.entity = output['entity']
         self.output_label = output['output_label']

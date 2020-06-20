@@ -77,9 +77,7 @@ def normalization(x, feature_list, output_names, output_normalizations,y=None):
 
             if norm_type != 'None':
                 try:
-                    print(y)
                     y = eval(norm_type)(y, output_names[i])
-                    print(y)
                 except:
                     tf.compat.v1.logging.error('IGNNITION: The normalization function ' + norm_type + ' is not defined in the main file.')
                     sys.exit(1)
@@ -87,8 +85,6 @@ def normalization(x, feature_list, output_names, output_normalizations,y=None):
 
 
     return x
-
-
 
 def tfrecord_input_fn(data_dir, shuffle=False, training = True):
     """
@@ -161,7 +157,6 @@ def tfrecord_input_fn(data_dir, shuffle=False, training = True):
                                                 args=(data_dir, feature_names, output_names, adjecency_info, interleave_list,training, shuffle))
 
         #ds = ds.batch(2)
-
 
         with tf.name_scope('normalization') as _:
             if not training:
@@ -542,7 +537,7 @@ class ComnetModel(tf.keras.Model):
 
                                      #convolutional aggregation
                                      elif message.agregation == 'convolutional':
-                                         print("hello")
+                                         print("Here we would do a convolution")
 
 
                                      #---------------------------------------
@@ -726,6 +721,7 @@ class ComnetModel(tf.keras.Model):
                 # single value to make global predictions. By default assume we sum all of them together.
                 if output.type == 'global':
                     input = tf.reduce_sum(input, 0)
+                    input = tf.reshape(input, [-1] + [input.shape.as_list()[0]])
 
                 r = model(input)
 
@@ -737,7 +733,6 @@ class ComnetModel(tf.keras.Model):
 
                     else:
                         predictions = tf.concat([predictions, r], axis = 0, name="Add_output_"+ str(model_counter))
-
 
         return predictions
 
@@ -760,7 +755,6 @@ def model_fn(features,labels,mode):
 
     #peform the predictions
     predictions = model(features, training=(mode == tf.estimator.ModeKeys.TRAIN))
-    predictions = tf.squeeze(predictions)
 
     #prediction mode. Denormalization is done if so specified
     if mode == tf.estimator.ModeKeys.PREDICT:

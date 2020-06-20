@@ -216,7 +216,6 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
                         id = involved_entities[entity]
                         data['indices_' + entity + '_to_' + dst_entity] = np.where(result == id)[0].tolist()
 
-
                 if not training:
                     yield data
                 else:
@@ -225,3 +224,4 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
         except Exception as inf:
             tf.compat.v1.logging.error('IGNNITION: ' + inf)
             sys.exit(1)
+

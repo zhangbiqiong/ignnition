@@ -462,7 +462,6 @@ class ComnetModel(tf.keras.Model):
                                  with tf.name_scope('create_message_' + src_name + '_to_' + dst_name) as _:
                                      message_creation_models = message.message_formation
 
-
                                      counter = 0
                                      for model in message_creation_models:
                                         if model.type == 'feed_forward_nn':
@@ -636,7 +635,6 @@ class ComnetModel(tf.keras.Model):
                                      #update
 
                                      update_model = message.update
-
 
                                      #recurrent update
                                      if update_model.type == "recurrent_nn":

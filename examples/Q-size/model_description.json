@@ -41,7 +41,7 @@
             [
                 {
                     "step_name": "step1",
-                    "message_passings":
+                    "mp_step":
                     [
                         {
                             "type": "multi_source",
@@ -73,7 +73,7 @@
                 },
                 {
                     "step_name": "step2",
-                    "message_passings":
+                    "mp_step":
                     [
                         {
                             "type": "single_source",
@@ -152,89 +152,89 @@
             }
         ],
         
-        "feed_forward_models":
-        [
-            {
-                "model_name": "readout_model",
-                "model_architecture":
-                [
-                    {
-                        "name": "First_dense_layer",
-                        "type_layer":"Dense",
-                        "units": 256,
-                        "activation": "selu"
-                    },
-                    {
-                        "name": "First_dropout_layer",
-                        "type_layer":"Dropout",
-                        "rate":0.5
-                    },
-                    {
-                        "name": "Second_dense_layer",
-                        "type_layer":"Dense",
-                        "units": 256,
-                        "activation": "selu"
-                    },
-                    {
-                        "name": "Third_dropout_layer",
-                        "type_layer":"Dropout",
-                        "rate":0.5
-                    },
-                    {
-                        "name": "Output_layer",
-                        "type_layer":"Dense",
-                        "units": 1,
-                        "activation": "selu"
-                    }
-                ]
-            },
-            {
-                "model_name": "aux",
-                "model_architecture":
-                [
-                    {
-                        "type_layer":"Dense",
-                        "units": 256,
-                        "activation": "selu"
-                    },
-                    {
-                        "type_layer":"Dropout",
-                        "rate":0.5
-                    },
-                    {
-                        "type_layer":"Dense",
-                        "units": 256,
-                        "activation": "selu"
-                    },
-                    {
-                        "type_layer":"Dropout",
-                        "rate":0.5
-                    },
-                    {
-                        "type_layer":"Dense",
-                        "units": 32,
-                        "activation": "selu"
-                    }
-                ]
-            }
-    
-        ],
-
-        "training_hyperparameters":
+    "feed_forward_models":
+    [
         {
-            "loss": "MeanSquaredError",
-            "optimizer":
-            {
-                "type": "Adam"
-            },
-            "schedule": 
-            {
-                "type": "ExponentialDecay",
-                "initial_learning_rate":0.001,
-                "decay_steps":82000,
-                "decay_rate":0.8,
-                "staircase": "True"
-            }
+            "model_name": "readout_model",
+            "model_architecture":
+            [
+                {
+                    "name": "First_dense_layer",
+                    "type_layer":"Dense",
+                    "units": 256,
+                    "activation": "selu"
+                },
+                {
+                    "name": "First_dropout_layer",
+                    "type_layer":"Dropout",
+                    "rate":0.5
+                },
+                {
+                    "name": "Second_dense_layer",
+                    "type_layer":"Dense",
+                    "units": 256,
+                    "activation": "selu"
+                },
+                {
+                    "name": "Third_dropout_layer",
+                    "type_layer":"Dropout",
+                    "rate":0.5
+                },
+                {
+                    "name": "Output_layer",
+                    "type_layer":"Dense",
+                    "units": 1,
+                    "activation": "selu"
+                }
+            ]
+        },
+        {
+            "model_name": "aux",
+            "model_architecture":
+            [
+                {
+                    "type_layer":"Dense",
+                    "units": 256,
+                    "activation": "selu"
+                },
+                {
+                    "type_layer":"Dropout",
+                    "rate":0.5
+                },
+                {
+                    "type_layer":"Dense",
+                    "units": 256,
+                    "activation": "selu"
+                },
+                {
+                    "type_layer":"Dropout",
+                    "rate":0.5
+                },
+                {
+                    "type_layer":"Dense",
+                    "units": 32,
+                    "activation": "selu"
+                }
+            ]
         }
+
+    ],
+
+    "learning_options":
+    {
+        "loss": "MeanSquaredError",
+        "optimizer":
+        {
+            "type": "Adam"
+        },
+        "schedule": 
+        {
+            "type": "ExponentialDecay",
+            "initial_learning_rate":0.001,
+            "decay_steps":82000,
+            "decay_rate":0.8,
+            "staircase": "True"
+        }
+    }
 
 }

@@ -23,6 +23,7 @@ import json
 from jsonschema import validate
 from auxilary_classes import *
 import copy
+import sys
 
 class Model_information:
     """
@@ -162,7 +163,9 @@ class Model_information:
         #in case JSON is used
         if path != None:
             data = self.__read_json(path)
-            validate(instance=data, schema=self.__read_json('./utils/schema.json')) #validate that the json is well defined
+            validate(instance=data,schema=self.__read_json('./utils/schema.json'))  # validate that the json is well defined
+
+            self.__validate_model_description(data)
 
             self.nn_architectures = self.__obtain_feed_forward_mapping(data['feed_forward_models'])
             self.entities = self.__obtain_entities(data['entities'])
@@ -196,6 +199,64 @@ class Model_information:
         with open(path) as json_file:
             data = json.load(json_file)
             return data
+
+
+    #validata that all the nn_name are correct. Validate that all source and destination entities are correct. Validate that all the inputs in the message function are correct
+    def __validate_model_description(self, data):
+        steps = data['mp_phase']['architecture']
+
+        sources = []
+        destinations = []
+        nn_name_called = []
+        output_names = ['hs_source', 'hs_dest', 'edge_params']
+        input_names = []
+        for s in steps:
+            s = s['mp_step']
+            for m in s: #for every message-passing
+                sources.append(m['source_entity'])
+                destinations.append(m['destination_entity'])
+
+                for op in m['message']: #for every operation
+                    if op['type'] == 'apply_nn':
+                        nn_name_called.append(op['nn_name'])
+                        input_names += op['input']
+
+                        if 'output_name' in op:
+                            output_names.append(op['output_name'])
+
+        readouts = data['output']
+        for r in readouts:
+            nn_name_called.append(r['nn_name'])
+
+
+        #now check the entities
+        entity_names = [a['name'] for a in data['entities']]
+        nn_names = [a['model_name'] for a in data['feed_forward_models']]
+        try:
+
+            for a in sources:
+                if a not in entity_names:
+                    raise Exception('The source entity ' + a + ' was used in a message passing. However, there is no such entity. \n Please check the spelling or define a new entity.')
+
+            for d in destinations:
+                if d not in entity_names:
+                    raise Exception('The destination entity ' + d + ' was used in a message passing. However, there is no such entity. \n Please check the spelling or define a new entity.')
+
+
+            #check the nn_names
+            for name in nn_name_called:
+                if name not in nn_names:
+                    raise Exception('The name ' + name + " is used as a reference to a neural network (nn_name), even though the neural network was not defined. \n Please make sure the name is correctly spelled or define a neural network named " + name)
+
+            #check the output and input names
+            for i in input_names:
+                if i not in output_names:
+                    raise Exception('The name ' + i + " was used as input of a message creation operation even though it wasn't the output of one.")
+
+        except Exception as inf:
+            tf.compat.v1.logging.error('IGNNITION: ' + str(inf) + '\n')
+            sys.exit(1)
+
 
 
 
@@ -252,7 +313,7 @@ class Model_information:
         mp_instances = []
 
         for step in inst:
-            aux = [Message_Passing(self.__add_nn_architecture(m)) for m in step['message_passings']]
+            aux = [Message_Passing(self.__add_nn_architecture(m)) for m in step['mp_step']]
             mp_instances.append([step['step_name'],aux])
 
         return mp_instances
@@ -313,7 +374,7 @@ class Model_information:
            Dictionary with the definition of the training options of the framework
         """
 
-        train_hp = data['training_hyperparameters']
+        train_hp = data['learning_options']
         dict = {}
 
         dict['loss'] = train_hp['loss'] #required

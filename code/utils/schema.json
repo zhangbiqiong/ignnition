@@ -357,7 +357,7 @@
         },
 
 
-        "training_hyperparameters":
+        "learning_options":
         {
             "description": "Definition of training hyperparameters",
             "type": "object",

@@ -37,6 +37,12 @@ def normalization_queue_size(feature, feature_name):
 
     return feature
 
+def log(feature, feature_name):
+    return tf.math.log(feature)
+
+def exp(feature, feature_name):
+    return tf.math.exp(feature)
+
 
 
 def main():

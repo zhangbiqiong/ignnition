@@ -30,91 +30,103 @@
         }
     ],
 
-    "message_passing":
+    "mp_phase":
         {
             "num_iterations": 8,
-
             "architecture":
             [
                 {
                     "step_name": "step1",
-                    "messages":
+                    "message_passings":
                     [
                         {
-                            "type": "individual",
+                            "type": "single_source",
                             "source_entity": "atom",
                             "destination_entity":"atom",
-                            "message_formation": 
-                            {
-                                "message_neural_net": "yes",
-                                "number_extra_parameters": 5,
-                                "architecture":
-                                [
-                                    {
-                                        "type":"Dense",
-                                        "units": 256,
-                                        "kernel_regularizer": 0.1,
-                                        "activation": "selu"
-                                    },
-                                    {
-                                        "type":"Dropout",
-                                        "rate":0.5
-                                    },
-                                    {
-                                        "type":"Dense",
-                                        "kernel_regularizer": 0.01,
-                                        "units": 32
-                                    }
-                                ]
-                            },
+                            "adj_vector": "adj_atom_atom",
+                            "message": 
+                            [
+                                {
+                                    "type": "apply_nn",
+                                    "input":["hs_source, hs_dest"],
+                                    "nn_name": "message_creation_nn"
+                                }
+                            ],
                             "agregation": "sum",
                             "update": 
                             {
-                                "update_type": "recurrent",
+                                "type": "apply_rnn",
                                 "recurrent_type": "GRU"
-                            },
-                            "adj_vector": "adj_atom_atom"
+                            }
                         }
                     ]
                 }
             ]
         },
 
-
     "output": 
     [
         {
-            "type": "local",
+            "type": "node_prediction",
             "entity": "atom",
             "output_label": "mu",
             "output_normalization": "norm_mu",
             "output_denormalization": "denorm_mu",
-            "architecture":
+            "nn_name": "readout"
+        }
+    ],
+
+    "feed_forward_models":
+    [
+        {
+            "nn_name": "readout",
+            "nn_architecture":
             [
                 {
-                    "type":"Dense",
+                    "type_layer":"Dense",
                     "units": 256,
                     "kernel_regularizer": 0.1,
                     "activation": "selu"
                 },
                 {
-                    "type":"Dropout",
+                    "type_layer":"Dropout",
                     "rate":0.5
                 },
                 {
-                    "type":"Dense",
+                    "type_layer":"Dense",
                     "units": 256,
                     "kernel_regularizer": 0.1,
                     "activation": "selu"
                 },
                 {
-                    "type":"Dropout",
+                    "type_layer":"Dropout",
                     "rate":0.5
                 },
                 {
-                    "type":"Dense",
+                    "type_layer":"Dense",
                     "kernel_regularizer": 0.01,
                     "units": 1
+                }
+            ]
+        },
+        {
+            "nn_name": "message_creation_nn",
+            "nn_architecture":
+            [
+                {
+                    "type_layer":"Dense",
+                    "units": 256,
+                    "kernel_regularizer": 0.1,
+                    "activation": "selu"
+                },
+                {
+                    "type_layer":"Dropout",
+                    "rate":0.5
+                },
+                {
+                    "type_layer":"Dense",
+                    "kernel_regularizer": 0.01,
+                    "units": 32
                 }
             ]
         }

@@ -22,6 +22,7 @@
 import json
 from jsonschema import validate
 from auxilary_classes import *
+import copy
 
 class Model_information:
     """
@@ -163,9 +164,10 @@ class Model_information:
             data = self.__read_json(path)
             validate(instance=data, schema=self.__read_json('./utils/schema.json')) #validate that the json is well defined
 
+            self.nn_architectures = self.__obtain_feed_forward_mapping(data['feed_forward_models'])
             self.entities = self.__obtain_entities(data['entities'])
-            self.iterations_mp = data['message_passing']['num_iterations']
-            self.mp_instances = self.__obtain_mp_instances(data['message_passing']['architecture'])
+            self.iterations_mp = data['mp_phase']['num_iterations']
+            self.mp_instances = self.__obtain_mp_instances(data['mp_phase']['architecture'])
             self.combined_mp_options = self.__calculate_mp_combination_options(data)    #if there is any
             self.outputs = self.__obtain_output_models(data['output'])
             self.training_options = self.__obtain_training_options(data)
@@ -196,6 +198,16 @@ class Model_information:
             return data
 
 
+
+    def __obtain_feed_forward_mapping(self, models):
+        result = {}
+
+        for m in models:
+            result[m['model_name']] = m['model_architecture']
+
+        return result
+
+
     def __obtain_entities(self, entities):
         """
         Parameters
@@ -208,6 +220,28 @@ class Model_information:
         return l
 
 
+    #substitutes the referenced name by the correct architecture
+    def __add_nn_architecture(self, m):
+
+        #we need to find out what the input dimension is
+
+
+        #add the message_creation nn architecture
+        for op in m['message']:
+            if op['type'] == 'apply_nn':
+                architecture = copy.deepcopy(self.nn_architectures[op['nn_name']])
+                del op['nn_name']
+                op['architecture'] = architecture
+
+        #add the update nn architecture
+        if 'update' in m and m['update']['type'] == 'apply_nn':
+            architecture = copy.deepcopy(self.nn_architectures[m['update']['nn_name']])
+            del m['update']['nn_name']
+            m['update']['architecture'] = architecture
+
+        return m
+
+
     def __obtain_mp_instances(self, inst):
         """
         Parameters
@@ -218,7 +252,7 @@ class Model_information:
         mp_instances = []
 
         for step in inst:
-            aux = [Message_Passing(m) for m in step['messages']]
+            aux = [Message_Passing(self.__add_nn_architecture(m)) for m in step['message_passings']]
             mp_instances.append([step['step_name'],aux])
 
         return mp_instances
@@ -232,7 +266,7 @@ class Model_information:
            Dictionary with the definition of each combined message passing
         """
 
-        m = data["message_passing"]
+        m = data["mp_phase"]
         if "combined_message_passing_options" in m.keys():
             aux = m["combined_message_passing_options"]
             dict = {}
@@ -247,6 +281,15 @@ class Model_information:
             return {}
 
 
+    def __add_readout_architecture(self, output):
+        name = output['nn_name']
+        architecture = copy.deepcopy(self.nn_architectures[name])
+        del output['nn_name']
+        output['architecture'] = architecture
+
+        return output
+
+
     def __obtain_output_models(self, outputs):
         """
         Parameters
@@ -257,9 +300,10 @@ class Model_information:
 
         result = []
         for output in outputs:
-            r = Readout_model(output)
+            r = Readout_model(self.__add_readout_architecture(output))
             result.append(r)
         return result
+
 
     def __obtain_training_options(self, data):
         """
@@ -302,7 +346,7 @@ class Model_information:
         for step in self.mp_instances:
             if step[0] == step_name:   #check if we are in fact within the step we care about
                 for m in step[1]:  # this is just one value
-                    if (m.type == "combined") & (m.destination_entity== dst_entity):
+                    if (m.type == "multi_source") & (m.destination_entity== dst_entity):
                         sources.append(m.source_entity)
 
         return sources
@@ -311,7 +355,7 @@ class Model_information:
         result = []
         for step in self.mp_instances:
             for m in step[1]:
-                if m.type == "combined" and m.agregation == 'combination':
+                if m.type == "multi_source" and m.aggregation == 'combination':
                     result.append([m.source_entity,m.destination_entity])
         return result
 

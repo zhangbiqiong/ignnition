@@ -130,7 +130,7 @@ def tfrecord_input_fn(data_dir, shuffle=False, training = True):
                 types['seq_' + a[1] + '_' + a[2]] = tf.int64
                 shapes['seq_' + a[1] + '_' + a[2]] = tf.TensorShape([None])
 
-            if a[4] != '0':
+            if a[4] == 'True':
                 types['params_' + a[0] ] = tf.int64
                 shapes['params_' + a[0]] = tf.TensorShape(None)
 
@@ -183,7 +183,8 @@ def r_squared(labels, predictions):
     predictions:    tensor
         Predictions of the model
     """
-
+    labels = tf.reshape(labels, [-1])
+    predictions = tf.reshape(predictions,[-1])
     total_error = tf.reduce_sum(tf.square(labels - tf.reduce_mean(labels)))
     unexplained_error = tf.reduce_sum(tf.square(labels - predictions))
     r_sq = 1.0 - tf.truediv(unexplained_error, total_error)
@@ -206,48 +207,61 @@ class ComnetModel(tf.keras.Model):
 
                     #Creation of the message creation models
                     with tf.name_scope('message_creation_models') as _:
-                        if message.formation_type == 'feed_forward':
-                            with tf.name_scope(message.destination_entity + '_ff') as _:
-                                model = message.message_formation
+                        operations = message.message_formation
+
+                        counter = 0
+                        for operation in operations:
+
+                            if operation.type == 'feed_forward_nn':
                                 src_entity = message.source_entity
                                 dst_entity = message.destination_entity
-                                var_name = src_entity + "_to_" + dst_entity + '_message_creation'
+                                var_name = src_entity + "_to_" + dst_entity + '_message_creation' + str(counter)
 
-                                input_dimension = int(self.entities_dimensions[src_entity] + self.entities_dimensions[dst_entity] + message.message_formation.num_extra_parameters)
+                                #find out what the input dimension is (need to keep track of previous ones)
+
+
+
+                                #input_dimension = int(self.entities_dimensions[src_entity] + self.entities_dimensions[dst_entity] + message.message_formation.num_extra_parameters)
+                                input_dimension = int(self.entities_dimensions[src_entity] + self.entities_dimensions[dst_entity])
 
                                 setattr(self, str(var_name) + "_layer_" + str(0), tf.keras.Input(shape=(input_dimension,)))
 
                                 layer_counter = 1
-                                layers = model.layers
+                                layers = operation.model.layers
                                 for l in layers:
                                     l_previous = getattr(self, str(var_name) + "_layer_" + str(layer_counter - 1))
+
                                     try:
                                         layer = l.get_tensorflow_object(l_previous)
                                         setattr(self, str(var_name) + "_layer_" + str(layer_counter), layer)
                                     except:
                                         tf.compat.v1.logging.error('IGNNITION: The layer ' + str(layer_counter) + ' of the message creation neural network in the message passing from ' + message.source_entity + ' to ' + message.destination_entity +
-                                                                   ' is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
+                                                                ' is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
                                         sys.exit(1)
 
                                     layer_counter += 1
 
                                 # Create the actual model. Seems like the final model doesn't recognize this automatically
                                 setattr(self, var_name, tf.keras.Model(inputs=getattr(self, str(var_name) + "_layer_" + str(0)),
-                                                       outputs=getattr(self,str(var_name) + "_layer_" + str(layer_counter - 1)),
-                                                       name=var_name))
+                                                    outputs=getattr(self,str(var_name) + "_layer_" + str(layer_counter - 1)),
+                                                    name=var_name))
 
+
+                            counter += 1
+
+                            #DEFINE HERE MORE OPERATIONS FOR MESSAGE CRETION FUNCTION
 
 
                     #Creation of the update models
                     with tf.name_scope('update_models') as _:
 
                         #Treat the individual message passings
-                        if message.type == 'individual':
-
+                        if message.type == 'single_source':
+                            update_model = message.update
                             #create the recurrent update models
-                            if message.update_type == "recurrent":
+                            if update_model.type == "recurrent_nn":
                                 dst_entity = message.destination_entity
-                                recurrent_cell = message.update
+                                recurrent_cell = update_model.model
                                 try:
                                     recurrent_instance = recurrent_cell.get_tensorflow_object(self.entities_dimensions[dst_entity])
                                     setattr(self, str(dst_entity)+'_update', recurrent_instance)
@@ -260,7 +274,7 @@ class ComnetModel(tf.keras.Model):
 
                             #create the feed-forward upddate models
                             else:
-                                model = message.update
+                                model = update_model.model
                                 src_entity = message.source_entity
                                 dst_entity = message.destination_entity
                                 var_name = dst_entity + "_ff_update"
@@ -288,7 +302,7 @@ class ComnetModel(tf.keras.Model):
                                             setattr(self, str(var_name) + "_layer_" + str(layer_counter), layer)
                                         except:
                                             tf.compat.v1.logging.error(
-                                                'IGNNITION: The layer ' + layer_counter + ' of the update neural network in message passing from ' + message.source_entity + ' to ' + message.destination_entity +
+                                                'IGNNITION: The layer ' + str(layer_counter) + ' of the update neural network in message passing from ' + message.source_entity + ' to ' + message.destination_entity +
                                                 ' is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
                                             sys.exit(1)
 
@@ -354,6 +368,7 @@ class ComnetModel(tf.keras.Model):
 
 
     def call(self, input, training=False):
+        print(input)
         """
         Parameters
         ----------
@@ -419,57 +434,116 @@ class ComnetModel(tf.keras.Model):
                                  destinations = input['dst_' + message.adj_vector]
                                  states = getattr(self, str(src_name) + '_state')
                                  num_dst = input['num_' + dst_name]
-                                 h_states = tf.gather(states,sources)  # obtain each of the source hs for each adj of the mp
-
+                                 messages = tf.gather(states,sources)  # initially all the messages are the source hs itself
+                                 src_hs = tf.gather(states,sources)   # obtain each of the source hs for each adj of the mp
+                                 dst_hs = getattr(self, dst_name + '_state')
 
                                  #use a ff if so needed
                                  with tf.name_scope('create_message_' + src_name + '_to_' + dst_name) as _:
+                                     message_creation_models = message.message_formation
 
-                                     if message.formation_type == 'feed_forward':
-                                         var_name = src_name + "_to_" + dst_name + '_message_creation'
-                                         message_creator = getattr(self, var_name)
+                                     first = True
+                                     counter = 0
+                                     for model in message_creation_models:
+                                        if model.type == 'feed_forward_nn':
+                                            var_name = src_name + "_to_" + dst_name + '_message_creation' + str(counter)  #careful. This name could overlap with another model
+                                            message_creator = getattr(self, var_name)
 
-                                         #get the hidden states of the destination
-                                         dst_hs = getattr(self, dst_name + '_state')
 
-                                         #obtain the right hs for each of the adjacencies from source to destination entity
-                                         h_states_dest = tf.gather(dst_hs, destinations)
+                                            for i in model.input:
+                                                if i == 'hs_source':
+                                                    if first:
+                                                        input_nn = src_hs
+                                                        first = False
 
-                                         # concatenate the hidden state of the source and destination.
-                                         ff_input = tf.concat([h_states, h_states_dest], axis=1)
+                                                    else:
+                                                        input_nn = tf.concat([input_nn, src_hs], axis = 1)
 
-                                         #concat to the input additional parameters if so needed.
-                                         if message.message_formation.num_extra_parameters != 0:
-                                             params = tf.cast(input['params_'+ message.adj_vector], tf.float32)
-                                             #if tf.shape(params)[0] != message.message_formation.num_extra_parameters:
-                                                 #tf.compat.v1.logging.error('IGNNITION: The number of parameters for adjacency ' + message.adj_vector + ' was supposed to be ' +
-                                                 #                           str(message.message_formation.num_extra_parameters) + ' but it was of ' + tf.size(params) + ' instead.')
-                                             #    sys.exit(1)
+                                                elif i == 'hs_dest':
+                                                    h_states_dest = tf.gather(dst_hs, destinations)
 
-                                             ff_input = tf.concat([ff_input, params], axis = 1)
+                                                    if first:
+                                                        input_nn = h_states_dest
+                                                        first = False
 
-                                         h_states = message_creator(ff_input)
+                                                    else:
+                                                        input_nn = tf.concat([input_nn, h_states_dest], axis=1)
 
-                                     else:
-                                         pass
-                                         #tf.compat.v1.logging.warn('IGNNITION: Only the hidden states of ' + dst_name + ' will be considered. Any extra parameter will be ignored.')
+
+                                                elif i == 'edge_params':
+                                                    edge_params = tf.cast(input['params_' + message.adj_vector], tf.float32)
+
+                                                    if first:
+                                                        input_nn = edge_params
+                                                        first = False
+                                                    else:
+                                                        input_nn = tf.concat([input_nn, edge_params], axis=1)
+
+                                                else:   #it is the output of a previous operation
+                                                    other_tensor = getattr(self, i + '_var')
+                                                    if first:
+                                                        input_nn = other_tensor
+                                                        first = False
+                                                    else:
+                                                        input_nn = tf.concat([input_nn, other_tensor], axis=1)
+
+                                            result = message_creator(input_nn)
+
+                                            if model.output_name != 'None':
+                                                setattr(self, model.output_name + '_var', result)
+
+                                            messages = result   #by default, the message is always the result from the last operation
+
+
+                                        counter +=1
+
+                                     # if message.formation_type == 'feed_forward':
+                                     #     var_name = src_name + "_to_" + dst_name + '_message_creation'
+                                     #     message_creator = getattr(self, var_name)
+                                     #
+                                     #     #get the hidden states of the destination
+                                     #     dst_hs = getattr(self, dst_name + '_state')
+                                     #
+                                     #     #obtain the right hs for each of the adjacencies from source to destination entity
+                                     #     h_states_dest = tf.gather(dst_hs, destinations)
+                                     #
+                                     #     # concatenate the hidden state of the source and destination.
+                                     #     ff_input = tf.concat([h_states, h_states_dest], axis=1)
+                                     #
+                                     #     #concat to the input additional parameters if so needed.
+                                     #     if message.message_formation.num_extra_parameters != 0:
+                                     #         params = tf.cast(input['params_'+ message.adj_vector], tf.float32)
+                                     #         #if tf.shape(params)[0] != message.message_formation.num_extra_parameters:
+                                     #             #tf.compat.v1.logging.error('IGNNITION: The number of parameters for adjacency ' + message.adj_vector + ' was supposed to be ' +
+                                     #             #                           str(message.message_formation.num_extra_parameters) + ' but it was of ' + tf.size(params) + ' instead.')
+                                     #         #    sys.exit(1)
+                                     #
+                                     #         ff_input = tf.concat([ff_input, params], axis = 1)
+                                     #
+                                     #     h_states = message_creator(ff_input)
+                                     #
+                                     # else:
+                                     #     pass
+                                     #     #tf.compat.v1.logging.warn('IGNNITION: Only the hidden states of ' + dst_name + ' will be considered. Any extra parameter will be ignored.')
+                                     #
+
 
 
                                  #treating the individual message passings
-                                 if message.type == "individual":
+                                 if message.type == "single_source":
 
                                      #-----------------------------------------
                                      #aggregation
 
-                                     agregation = message.agregation
+                                     aggregation = message.aggregation
 
                                      #sum aggregation
-                                     if agregation == 'sum':
+                                     if aggregation == 'sum':
                                          with tf.name_scope("agregate_sum_" + src_name) as _:
-                                             source_input = tf.math.unsorted_segment_sum(h_states, destinations, num_dst)
+                                             source_input = tf.math.unsorted_segment_sum(messages, destinations, num_dst)
 
                                      #ordered aggregation
-                                     elif agregation == 'ordered':
+                                     elif aggregation == 'ordered':
                                          with tf.name_scope("agregate_ordered_" + src_name) as _:
                                              seq = input['seq_' + src_name + '_' + dst_name]
 
@@ -483,13 +557,13 @@ class ComnetModel(tf.keras.Model):
                                                                                  destinations,
                                                                                  num_dst)  # destinations should be in order. CHECK!!
 
-                                             source_input = tf.scatter_nd(ids, h_states, shape)
+                                             source_input = tf.scatter_nd(ids, messages, shape)
 
                                      #attention aggreagation
-                                     elif agregation == 'attention':
+                                     elif aggregation == 'attention':
                                          with tf.name_scope("attention_mechanism_" + src_name) as _:
                                              #obtain the source states  (NxF1)
-                                             h_src = tf.identity(h_states)
+                                             h_src = tf.identity(messages)
                                              F1 = int(self.entities_dimensions[message.source_entity])
 
                                              #obtain the destination states  (NxF2)
@@ -532,23 +606,26 @@ class ComnetModel(tf.keras.Model):
 
                                              #sum them all together using the coefficients (average)
                                              final_coeffitients = tf.gather_nd(coeffients, ids)
-                                             weighted_inputs = h_states * final_coeffitients
+                                             weighted_inputs = messages * final_coeffitients
                                              source_input = tf.math.unsorted_segment_sum(weighted_inputs, destinations,num_dst)
 
                                      #convolutional aggregation
-                                     elif message.agregation == 'convolutional':
+                                     elif message.aggregation == 'convolutional':
                                          print("Here we would do a convolution")
 
 
                                      #---------------------------------------
                                      #update
 
+                                     update_model = message.update
+
+
                                      #recurrent update
-                                     if message.update_type == "recurrent":
-                                         agregation = message.agregation
+                                     if update_model.type == "recurrent_nn":
+                                         aggregation = message.aggregation
 
                                          #if the aggregation was a sum
-                                         if agregation == 'sum' or agregation == 'attention' or agregation=='convolutional':
+                                         if aggregation == 'sum' or aggregation == 'attention' or aggregation=='convolutional':
                                              with tf.name_scope("update_sum_" + dst_name) as _:
                                                  old_state = getattr(self, str(dst_name)+'_state')
                                                  model = getattr(self,str(dst_name)+'_update')
@@ -558,7 +635,7 @@ class ComnetModel(tf.keras.Model):
 
 
                                          #if the aggregation was ordered
-                                         elif agregation == 'ordered':
+                                         elif aggregation == 'ordered':
                                              with tf.name_scope("update_ordered_" + dst_name) as _:
                                                  old_state = getattr(self, str(dst_name) + '_state')
                                                  model = getattr(self, str(dst_name) + '_update')
@@ -570,7 +647,7 @@ class ComnetModel(tf.keras.Model):
 
                                      #feed-forward update:
                                      #restriction: It can only be used if the aggreagation was ordered.
-                                     elif message.update_type == 'feed_forward':
+                                     elif update_model.type == 'feed_forward_nn':
                                          update = getattr(self, dst_name + '_ff_update')
                                          current_hs = getattr(self, dst_name + '_state')
 
@@ -588,14 +665,14 @@ class ComnetModel(tf.keras.Model):
                                      #aggregation
 
                                      #sum aggreagtion
-                                     if message.agregation == 'sum':
+                                     if message.aggregation == 'sum':
                                          with tf.name_scope('combined_sum_preprocessing' + src_name) as _:
-                                             m = tf.math.unsorted_segment_sum(h_states, destinations,num_dst)  # m is the aggregated values. Sum together the values belonging to the same path
+                                             m = tf.math.unsorted_segment_sum(messages, destinations,num_dst)  # m is the aggregated values. Sum together the values belonging to the same path
                                              setattr(self, str(src_name) + '_sum_combined', m)
 
 
                                      #combination aggreagation
-                                     elif message.agregation == 'combination':
+                                     elif message.aggregation == 'combination':
                                          with tf.name_scope('combination_preprocessing' + src_name) as _:
 
                                              seq = input['seq_' + src_name + '_' + dst_name]
@@ -608,7 +685,7 @@ class ComnetModel(tf.keras.Model):
 
                                              shape = tf.stack([num_dst, max_len, int(self.entities_dimensions[src_name])])
 
-                                             source_input = tf.scatter_nd(ids, h_states, shape)
+                                             source_input = tf.scatter_nd(ids, messages, shape)
 
                                              setattr(self, str(src_name) + '_to_' + str(dst_name) +  '_combined_', source_input)
 
@@ -717,9 +794,9 @@ class ComnetModel(tf.keras.Model):
                 input = getattr(self, dst_name + '_state')
 
 
-                # if the output we want to treat is global, we need to aggregate all the inputs into a
-                # single value to make global predictions. By default assume we sum all of them together.
-                if output.type == 'global':
+                # if the output we want to treat is graph, we need to aggregate all the inputs into a
+                # single value to make graph predictions. By default assume we sum all of them together.
+                if output.type == 'graph_prediction':
                     input = tf.reduce_sum(input, 0)
                     input = tf.reshape(input, [-1] + [input.shape.as_list()[0]])
 

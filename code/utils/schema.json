@@ -56,7 +56,7 @@
               "required": ["name", "hidden_state_dimension", "features"]
             }},
 
-        "message_passing": 
+        "mp_phase": 
         {
             "description": "Message passing strategy",
             "type": "object",
@@ -80,7 +80,7 @@
                             "step_name": {
                                 "type": "string"
                             },
-                            "messages":
+                            "message_passings":
                             {
                                 "type": "array",    
                                 "items": {
@@ -90,7 +90,7 @@
                                         "type": {
                                             "description": "Type of message passing",
                                             "type": "string",
-                                            "enum": ["individual", "combined"]
+                                            "enum": ["single_source", "multi_source"]
                                         },
                                         "source_entity": {
                                             "description": "Name of the source entity sending the messages",
@@ -100,133 +100,121 @@
                                             "description": "Name of the destination entity receiving the messages",
                                             "type": "string"
                                         },
-                                        "message_formation":
+                                        "adj_vector": {
+                                            "description": "Name of the adjacency list which defines the adjacencies from the source to the destiantion entity.",
+                                            "type": "string"
+                                        },
+                                        "message":
                                         {
-                                            "type": "object",
-                                            "properties":
-                                            {
-                                                "message_neural_net":
+                                            "type": "array",
+                                            "items": {
+                                                "description": "Define each of the operations for the message creation function",
+                                                "type": "object",
+                                                "properties":
                                                 {
-                                                    "type": "string",
-                                                    "enum": ["yes", "no"]
-                                                },
-                                                "number_extra_parameters":
-                                                {
-                                                    "type": "integer"
-                                                },
-                                                "architecture": 
-                                                {
-                                                    "type": "array",
-                                                    "items": 
+                                                    "type":
                                                     {
-                                                        "description": "Architecture of the readout model that shall be used for predictions.",
-                                                        "type": "object",
-                                                        "properties": 
-                                                        {
-                                                            "type": 
-                                                            {
-                                                                "description": "Type of layer",
-                                                                "type": "string",
-                                                                "enum": ["Dense", "Dropout"]
-                                                            },
-                                                            "name": 
-                                                            {
-                                                                "description": "Name given to this layer.",
-                                                                "type": "string"
-                                                            }
+                                                        "description": "Type of operation to apply",
+                                                        "type": "string",
+                                                        "enum": ["apply_nn", "None"]
+                                                    },
+                                                    "nn_name":
+                                                    {
+                                                        "description": "Reference the neural network to be used",
+                                                        "type": "string"
+                                                    },
+                                                    "input":
+                                                    {
+                                                        "description": "Input of this operation",
+                                                        "type": "array",
+                                                        "items":{
+                                                            "description": "define the inputs",
+                                                            "type": "string"
                                                         }
+                                                    },
+                                                    "output_name":
+                                                    {
+                                                        "description": "Define an output name for the result, to reference it later",
+                                                        "type": "string"
                                                     }
-                                                }
+                                                },
+                                                "if": {
+                                                    "properties": { "type": { "const": "apply_nn" } }
+                                                },
+                                                "then": {
+                                                    "required": ["nn_name", "input"]
+                                                },
+                                                "required": ["type"]
 
-
-                                            },
-                                            "if": {
-                                                "properties": { "message_neural_net": { "const": "yes" } }
-                                            },
-                                            "then": {
-                                                "required": ["architecture"]
-                                            },
-                                            "required": ["message_neural_net"]
+                                            }
                                             
                                         },
-                                        "agregation": {
+                                        "aggregation": {
                                             "description": "How the messages are combined by the destination source",
                                             "type": "string",
                                             "enum": ["sum", "ordered", "combination", "attention"]
                                         },
                                         "update": 
                                         {
-                                            "description": "How the hidden state of the destination entity is updated with the received messages.",
                                             "type": "object",
                                             "properties":
                                             {
-                                                "update_type": 
+                                                "type":
                                                 {
+                                                    "description": "Type of operation for the update given the aggregated and the current hs",
                                                     "type": "string",
-                                                    "enum": ["recurrent", "feed_forward"]
+                                                    "enum": ["apply_nn", "apply_rnn"]
                                                 },
-                                                "recurrent_type": 
+                                                "recurrent_type":
                                                 {
+                                                    "description": "Define the type of recurrent cell for the RNN",
                                                     "type": "string",
                                                     "enum": ["GRU", "LSTM"]
                                                 },
-                                                "architecture": 
+                                                "nn_name":
                                                 {
-                                                    "type": "array",
-                                                    "items": 
+                                                    "description": "Reference the neural network to be used",
+                                                    "type": "string"
+                                                }
+                                                },
+                                                "allOf": [
                                                     {
-                                                        "description": "Architecture of the readout model that shall be used for predictions.",
-                                                        "type": "object",
-                                                        "properties": 
-                                                        {
-                                                            "type": 
-                                                            {
-                                                                "description": "Type of layer",
-                                                                "type": "string",
-                                                                "enum": ["Dense", "Dropout"]
-                                                            },
-                                                            "name": 
-                                                            {
-                                                                "description": "Name given to this layer.",
-                                                                "type": "string"
-                                                            }
+                                                        "if": {
+                                                            "properties": { "type": { "const": "apply_nn" } }
+                                                        },
+                                                        "then": {
+                                                            "required": ["nn_name"]
+                                                        }
+                                                    },
+                                                    {
+                                                        "if": {
+                                                            "properties": { "type": { "const": "apply_rnn" } }
+                                                        },
+                                                        "then": {
+                                                            "required": ["recurrent_type"]
                                                         }
                                                     }
-
-                                                }
-                                            },
-                                            "if": {
-                                                "properties": { "update_type": { "const": "recurrent" } }
-                                            },
-                                            "then": {
-                                                "required": ["recurrent_type"]
-                                            },
-                                            "else": {
-                                                "required": ["architecture"]
-                                            },
-                                            "required": ["update_type"]
-                                        },
-                                        "adj_vector": {
-                                            "description": "Name of the adjacency list which defines the adjacencies from the source to the destiantion entity.",
-                                            "type": "string"
+                                                ]
                                         }
+                                        
                                     },
                                     "if": {
-                                        "properties": { "type": { "const": "combined" } },
+                                        "properties": { "type": { "const": "multi_source" } },
                                         "required": ["type"]
                                     },
                                     "then": {
-                                        "properties": { "agregation": {"const": "combination"}}
+                                        "properties": { "aggregation": {"const": "combination"}}
                                     },
                                     "else": {
-                                        "properties": {"agreagation": {"enum": ["sum", "ordered"]}},
+                                        "properties": {"aggreagation": {"enum": ["sum", "ordered"]}},
                                         "required": ["update"]
                                     },
-                                    "required": ["type", "source_entity", "destination_entity", "agregation", "adj_vector", "message_formation"]
+                                    "required": ["type", "source_entity", "destination_entity", "aggregation", "adj_vector", "message"]
                                     
                                 }
                             }
-                        }
+                        },
+                        "require": ["message_passings"]
                     }
                 },
                 "combined_message_passing_options":
@@ -288,11 +276,11 @@
                 "type": "object",
                 "properties": 
                 {
-                    "type": 
+                    "type_of_prediction": 
                     {
                         "description": "Type of prediction we want to make",
                         "type": "string",
-                        "enum" : ["local", "global"]
+                        "enum" : ["node_prediction", "graph_prediction"]
                     },
                     "entity": 
                     {
@@ -309,14 +297,42 @@
                         "description": "Normalization of the output",
                         "type": "string"
                     },
-                    "architecture": 
+                    "nn_name":
                     {
+                        "description": "References the neural network to use as readout",
+                        "type": "string"
+                    }
+                },
+                "required": ["type_of_prediction", "entity", "output_label", "nn_name"]
+            }
+        },
+
+        "feed_forward_models":
+        {
+            "description": "Here we describe all the feed_forward models that will be referenced later",
+            "type": "array",
+            "items":
+            {
+                "description": "Single feed_forward model",
+                "type": "object",
+                "properties":
+                {
+                    "model_name":
+                    {
+                        "description": "Define the name of the model",
+                        "type": "string"
+                    },
+                    "model_architecture":
+                    {
+                        "description": "Define the architecture",
                         "type": "array",
-                        "items": {
-                            "description": "Architecture of the readout model that shall be used for predictions.",
-                            "type": "object",
-                            "properties": {
-                                "type": {
+                        "items": 
+                        {
+                            "description": "Definition of a single layer of the neural network",
+                            "type":"object",
+                            "properties": 
+                            {
+                                "type_layer": {
                                     "description": "Type of layer",
                                     "type": "string",
                                     "enum": ["Dense", "Dropout"]
@@ -326,13 +342,21 @@
                                     "type": "string"
                                 }
                             }
-                        }
+
+
+                        },
+                        "required": ["type_layer"]
+                        
                     }
                     
-                },
-                "required": ["type", "entity", "output_label", "architecture"]
+                }
+
+
             }
+
         },
+
+
         "training_hyperparameters":
         {
             "description": "Definition of training hyperparameters",

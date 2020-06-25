@@ -114,6 +114,36 @@ class Entity:
         self.features.append(f)
 
 
+class Operation:
+    def __init__(self, type):
+        self.type = type    #type of operation
+
+class Apply_nn(Operation):
+    def __init__(self, op):
+        super(Apply_nn, self).__init__(type="feed_forward_nn")
+        self.input = op['input']
+
+        if 'output_name' in op:
+            self.output_name = op['output_name']
+
+        else:
+            self.output_name = 'None'
+
+        #we need somehow to find the number of extra_parameters beforehand
+        self.model = Feed_forward_message_creation(op['architecture'], 0)
+
+
+class Apply_rnn(Operation):
+    def __init__(self, op):
+        super(Apply_rnn, self).__init__(type="recurrent_nn")
+
+        #Here initialize the recursive neural network (op might contain any additional parameter of the RNN?
+        del op['type']
+        recurrent_type = op['recurrent_type']
+        del op['recurrent_type']
+        self.model = Recurrent_Cell(recurrent_type, op)
+
+
 class Combined_mp:
     """
     Attributes
@@ -164,7 +194,7 @@ class Message_Passing:
         Name from the dataset where the adjacency list can be found
     extra_parameters:    int (optional)
         Number of extra parameters to be used
-    agregation:     str
+    aggregation:     str
         Type of aggregation strategy
     update:     object
         Object with the update model to be used
@@ -196,7 +226,7 @@ class Message_Passing:
     add_message_formation_layer(self, **dict):
         Adds a layer to the message formation model
 
-    set_agregation(self, agregation)
+    set_aggregation(self, aggregation)
         Sets the aggregation strategy for the mp
 
     set_update_strategy(self, update_type, recurrent_type = 'GRU')
@@ -220,43 +250,54 @@ class Message_Passing:
         self.adj_vector = m['adj_vector']
         self.extra_parameters = 0
 
-        if 'agregation' in m:
-            self.agregation = m['agregation']
+
+        if 'aggregation' in m:
+            self.aggregation = m['aggregation']
 
         if 'update' in m:
             self.update = self.create_update(m['update'])
-            self.update_type = m['update']['update_type']
 
-        if 'message_formation' in m:
-            self.formation_type = self.find_type_of_message_creation(m['message_formation']['message_neural_net'])
+        if 'message' in m:
+            self.message_formation = self.create_message_formation(m['message'])
 
-            if 'number_extra_parameters' in m['message_formation']:
-                self.extra_parameters = m['message_formation']['number_extra_parameters']
+            #self.formation_type = self.find_type_of_message_creation(m['message_formation']['message_neural_net'])
 
-            if self.formation_type == 'feed_forward':
-                self.message_formation = self.create_message_formation(m['message_formation'])
+            #if 'number_extra_parameters' in m['message_formation']:
+            #    self.extra_parameters = m['message_formation']['number_extra_parameters']
+
+            #if self.formation_type == 'feed_forward':
+            #    self.message_formation = self.create_message_formation(m['message_formation'])
 
 
-    def create_update(self,dict):
-        """
-        Parameters
-        ----------
-        dict:    dict
-            Dict with the parameters to be passed to the specific update model
-        """
+    def create_update(self, u):
+        if u["type"] == 'apply_nn':
+            return Apply_nn({'input': ['destination', 'aggregated'], 'architecture': u['architecture']})
 
-        if dict['update_type'] == 'recurrent':
-            parameters = dict.copy()
-            del parameters['update_type']
-            del parameters['recurrent_type']
+        if u['type'] == 'apply_rnn':
+            return Apply_rnn(u)
 
-            parameters['name'] = self.destination_entity + '_update'
 
-            return Recurrent_Cell(dict['recurrent_type'], parameters)
+    # def create_update(self,dict):
+    #     """
+    #     Parameters
+    #     ----------
+    #     dict:    dict
+    #         Dict with the parameters to be passed to the specific update model
+    #     """
+    #
+    #     if dict['update_type'] == 'recurrent':
+    #         parameters = dict.copy()
+    #         del parameters['update_type']
+    #         del parameters['recurrent_type']
+    #
+    #         parameters['name'] = self.destination_entity + '_update'
+    #
+    #         return Recurrent_Cell(dict['recurrent_type'], parameters)
+    #
+    #     elif dict['update_type'] == 'feed_forward':
+    #         f = Feed_forward_model({'architecture':dict['architecture']}, model_role="update")
+    #         return f
 
-        elif dict['update_type'] == 'feed_forward':
-            f = Feed_forward_model({'architecture':dict['architecture']}, model_role="update")
-            return f
 
     def find_type_of_message_creation(self, type):
         """
@@ -271,23 +312,36 @@ class Message_Passing:
         return 'hidden_state'
 
 
-    def create_message_formation(self, dict):
-        """
-        Parameters
-        ----------
-        dict:    dict
-            Dict with the parameters to pass to the feed-forward architecture
-        """
+    def create_message_formation(self, operations):
+        result = []
+        for op in operations:
+            if op['type'] == 'apply_nn':
+                print("adjslfjdsalfj",op)
+                result.append(Apply_nn(op))
 
-        if 'number_extra_parameters' in dict:
-            self.extra_parameters = dict['number_extra_parameters']
+            if op['type'] == 'None':
+                result.append(Operation("None"))
+        return result
 
 
-        f = Feed_forward_message_creation(dict['architecture'], self.extra_parameters)
-        return f
+    # def create_message_formation(self, dict):
+    #     """
+    #     Parameters
+    #     ----------
+    #     dict:    dict
+    #         Dict with the parameters to pass to the feed-forward architecture
+    #     """
+    #
+    #     if 'number_extra_parameters' in dict:
+    #         self.extra_parameters = dict['number_extra_parameters']
+    #
+    #
+    #     f = Feed_forward_message_creation(dict['architecture'], self.extra_parameters)
+    #     return f
+
 
     def get_instance_info(self):
-        ordered = str((self.agregation == 'ordered') or (self.agregation == 'combination') or (self.agregation == 'attention'))
+        ordered = str((self.aggregation == 'ordered') or (self.aggregation == 'combination') or (self.aggregation == 'attention'))
 
         return [self.adj_vector, self.source_entity, self.destination_entity, ordered, str(self.extra_parameters > 0)]
 
@@ -319,15 +373,15 @@ class Message_Passing:
 
         self.message_formation.add_layer_aux(dict)
 
-    def set_agregation(self, agregation):
+    def set_aggregation(self, aggregation):
         """
         Parameters
         ----------
-        agregation:    str
+        aggregation:    str
             Aggreagation type of the message passing
         """
 
-        self.agregation = agregation
+        self.aggregation = aggregation
 
 
     def set_update_strategy(self, update_type, recurrent_type = 'GRU'):
@@ -497,12 +551,12 @@ class Feed_forward_model:
         if 'architecture' in model:
             dict = model['architecture']
             for l in dict:
-                type = l['type']
+                type_layer = l['type_layer'] #type of layer
                 if 'name' not in l:
-                    l['name'] = 'layer_' + str(self.counter) + '_' + str(l['type']+'_'+str(model_role))
-                del l['type']  #leave only the parameters of the layer
+                    l['name'] = 'layer_' + str(self.counter) + '_' + type_layer + '_' + str(model_role)
+                del l['type_layer']  #leave only the parameters of the layer
 
-                layer = Feed_forward_Layer(type, l)
+                layer = Feed_forward_Layer(type_layer, l)
                 self.layers.append(layer)
                 self.counter +=1
 
@@ -514,9 +568,9 @@ class Feed_forward_model:
             Information of the new layer to be added
         """
 
-        type = l['type']
-        del l['type']
-        layer = Feed_forward_Layer(type, l)
+        type_layer = l['type_layer']
+        del l['type_layer']
+        layer = Feed_forward_Layer(type_layer, l)
         self.layers.append(layer)
 
     def add_layer_aux(self,l):
@@ -527,9 +581,9 @@ class Feed_forward_model:
             Information of the new layer to be added
         """
 
-        type = l['type']
-        del l['type']
-        layer = Feed_forward_Layer(type, l)
+        type_layer = l['type_layer']
+        del l['type_layer']
+        layer = Feed_forward_Layer(type_layer, l)
         self.layers.append(layer)
 
 
@@ -582,7 +636,7 @@ class Readout_model(Feed_forward_model):
         """
 
         super(Readout_model, self).__init__(output, model_role="readout")
-        self.type = output['type']
+        self.type = output['type_of_prediction']
         self.entity = output['entity']
         self.output_label = output['output_label']
         self.output_normalization = None

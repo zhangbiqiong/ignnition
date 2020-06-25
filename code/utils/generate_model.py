@@ -215,31 +215,52 @@ class ComnetModel(tf.keras.Model):
                             if operation.type == 'feed_forward_nn':
                                 src_entity = message.source_entity
                                 dst_entity = message.destination_entity
-                                var_name = src_entity + "_to_" + dst_entity + '_message_creation' + str(counter)
-
+                                var_name = src_entity + "_to_" + dst_entity + '_message_creation_' + str(counter)
                                 #find out what the input dimension is (need to keep track of previous ones)
 
-
-
                                 #input_dimension = int(self.entities_dimensions[src_entity] + self.entities_dimensions[dst_entity] + message.message_formation.num_extra_parameters)
-                                input_dimension = int(self.entities_dimensions[src_entity] + self.entities_dimensions[dst_entity])
+
+                                #Find out the dimension of the model
+                                input_nn = operation.input
+                                input_dimension = 0
+                                for i in input_nn:
+                                    if i == 'hs_source':
+                                        input_dimension += int(self.entities_dimensions[src_entity])
+                                    elif i == 'hs_dest':
+                                        input_dimension += int(self.entities_dimensions[dst_entity])
+                                    elif i == 'edge_params':
+                                        input_dimension += 5 #need to know this number
+                                    else:
+                                        dimension = getattr(self, i + '_dim')
+                                        input_dimension += dimension
+
+
+
 
                                 setattr(self, str(var_name) + "_layer_" + str(0), tf.keras.Input(shape=(input_dimension,)))
 
                                 layer_counter = 1
                                 layers = operation.model.layers
+                                output_shape = 0
                                 for l in layers:
                                     l_previous = getattr(self, str(var_name) + "_layer_" + str(layer_counter - 1))
 
                                     try:
-                                        layer = l.get_tensorflow_object(l_previous)
-                                        setattr(self, str(var_name) + "_layer_" + str(layer_counter), layer)
+                                        layer_model = l.get_tensorflow_object(l_previous)
+                                        setattr(self, str(var_name) + "_layer_" + str(layer_counter), layer_model)
                                     except:
                                         tf.compat.v1.logging.error('IGNNITION: The layer ' + str(layer_counter) + ' of the message creation neural network in the message passing from ' + message.source_entity + ' to ' + message.destination_entity +
                                                                 ' is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
                                         sys.exit(1)
 
+                                    output_shape = int(layer_model.shape[1])
                                     layer_counter += 1
+
+
+                                #Need to keep track of the output dimension of this one, in case we need it for a new model
+                                if operation.output_name != 'None':
+                                    setattr(self, operation.output_name + '_dim', output_shape)
+
 
                                 # Create the actual model. Seems like the final model doesn't recognize this automatically
                                 setattr(self, var_name, tf.keras.Model(inputs=getattr(self, str(var_name) + "_layer_" + str(0)),
@@ -368,7 +389,6 @@ class ComnetModel(tf.keras.Model):
 
 
     def call(self, input, training=False):
-        print(input)
         """
         Parameters
         ----------
@@ -442,14 +462,13 @@ class ComnetModel(tf.keras.Model):
                                  with tf.name_scope('create_message_' + src_name + '_to_' + dst_name) as _:
                                      message_creation_models = message.message_formation
 
-                                     first = True
+
                                      counter = 0
                                      for model in message_creation_models:
                                         if model.type == 'feed_forward_nn':
-                                            var_name = src_name + "_to_" + dst_name + '_message_creation' + str(counter)  #careful. This name could overlap with another model
+                                            var_name = src_name + "_to_" + dst_name + '_message_creation_' + str(counter)  #careful. This name could overlap with another model
                                             message_creator = getattr(self, var_name)
-
-
+                                            first = True
                                             for i in model.input:
                                                 if i == 'hs_source':
                                                     if first:
@@ -488,7 +507,6 @@ class ComnetModel(tf.keras.Model):
                                                         input_nn = tf.concat([input_nn, other_tensor], axis=1)
 
                                             result = message_creator(input_nn)
-
                                             if model.output_name != 'None':
                                                 setattr(self, model.output_name + '_var', result)
 

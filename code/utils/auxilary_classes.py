@@ -119,7 +119,7 @@ class Operation:
         self.type = type    #type of operation
 
 class Apply_nn(Operation):
-    def __init__(self, op):
+    def __init__(self, op, counter):
         super(Apply_nn, self).__init__(type="feed_forward_nn")
         self.input = op['input']
 
@@ -130,7 +130,7 @@ class Apply_nn(Operation):
             self.output_name = 'None'
 
         #we need somehow to find the number of extra_parameters beforehand
-        self.model = Feed_forward_message_creation(op['architecture'], 0)
+        self.model = Feed_forward_message_creation(op['architecture'],counter, 0)
 
 
 class Apply_rnn(Operation):
@@ -314,13 +314,14 @@ class Message_Passing:
 
     def create_message_formation(self, operations):
         result = []
+        counter = 0
         for op in operations:
             if op['type'] == 'apply_nn':
-                print("adjslfjdsalfj",op)
-                result.append(Apply_nn(op))
+                result.append(Apply_nn(op, counter))
 
             if op['type'] == 'None':
                 result.append(Operation("None"))
+            counter += 1
         return result
 
 
@@ -360,7 +361,7 @@ class Message_Passing:
             self.formation_type = 'recurrent'
         else:
             self.formation_type = 'feed_forward'
-            self.message_formation= Feed_forward_message_creation({}, number_extra_parameters)
+            self.message_formation= Feed_forward_message_creation({}, 0, number_extra_parameters)
 
 
     def add_message_formation_layer(self, **dict):
@@ -597,7 +598,7 @@ class Feed_forward_message_creation(Feed_forward_model):
         Extra parameters to be used from the dataset
     """
 
-    def __init__(self,architecture, num_parameter):
+    def __init__(self,architecture, counter, num_parameter):
         """
         Parameters
         ----------
@@ -607,7 +608,7 @@ class Feed_forward_message_creation(Feed_forward_model):
             Extra parameters to be used from the dataset
         """
 
-        super(Feed_forward_message_creation, self).__init__({'architecture':architecture}, model_role="message_creation")
+        super(Feed_forward_message_creation, self).__init__({'architecture':architecture}, model_role="message_creation_" + str(counter))
         self.num_extra_parameters = num_parameter
 
 

@@ -174,10 +174,16 @@ class Combined_mp:
             self.combination_definition = None
 
         params = dict['update']
-        type = params['recurrent_type']
-        del params['recurrent_type']
-        self.update = Recurrent_Cell(type, params)
 
+        if params['type'] == 'apply_rnn':
+            print(params)
+            self.update = Apply_rnn(params)
+            #type = params['recurrent_type']
+            #del params['recurrent_type']
+            #self.update = Recurrent_Cell(type, params)
+
+        elif params['type'] == 'apply_nn':
+            self.update = Apply_nn(params)
 
 
 class Message_Passing:

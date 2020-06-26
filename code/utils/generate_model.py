@@ -204,7 +204,6 @@ class ComnetModel(tf.keras.Model):
         with tf.name_scope('model_initializations') as _:
             for step in self.instances_per_step:
                 for message in step[1]:
-
                     #Creation of the message creation models
                     with tf.name_scope('message_creation_models') as _:
                         operations = message.message_formation
@@ -343,17 +342,21 @@ class ComnetModel(tf.keras.Model):
                 messages_to_combine = combined_models[step]
                 for mp in messages_to_combine:
                     dst_entity = mp.destination_entity
-                    recurrent_cell = mp.update
-                    try:
-                        #obtain the recurrent_models
-                        recurrent_instance = recurrent_cell.get_tensorflow_object(self.entities_dimensions[dst_entity])
-                        setattr(self, str(dst_entity) + '_combined_update', recurrent_instance)
-                    except:
-                        tf.compat.v1.logging.error(
-                            'IGNNITION: The definition of the recurrent cell in message passsing ' )
-                        sys.exit(1)
+                    src_entity = mp.source_entity
+                    var_name = dst_entity + "_ff_update"
+                    model_op = mp.update
 
+                    if model_op.type == 'recurrent_nn':
+                        try:
+                            #obtain the recurrent_models
+                            recurrent_cell = model_op.model
+                            recurrent_instance = recurrent_cell.get_tensorflow_object(self.entities_dimensions[dst_entity])
+                            setattr(self, str(dst_entity) + '_combined_update', recurrent_instance)
 
+                        except:
+                            tf.compat.v1.logging.error(
+                                'IGNNITION: The definition of the recurrent cell in the combined message passsing with destination entity ' + '"' + dst_entity + '"' )
+                            sys.exit(1)
 
 
 
@@ -734,17 +737,17 @@ class ComnetModel(tf.keras.Model):
                                                      state = getattr(self, str(src_name)+'_sum_combined')
 
                                                      if first:
-                                                         final_state = state
+                                                         source_input = state
                                                          first = False
                                                      else:
                                                          #concatenate, so every node receives only one message
-                                                         final_state = tf.concat([final_state, state], axis=1)
+                                                         source_input = tf.concat([source_input, state], axis=1)
 
                                          #standard update with the aggreagated information
                                          with tf.name_scope("update_" + dst_name) as _:
                                              old_state = getattr(self, str(dst_name) + '_state')
                                              model = getattr(self, str(dst_name) + '_combined_update')
-                                             new_state, _ = model(final_state, [old_state])
+                                             new_state, _ = model(source_input, [old_state])
                                              setattr(self, str(dst_name) + '_state', new_state)
 
 

@@ -247,8 +247,14 @@
                                 "type":"object",
                                 "properties":
                                 {
+                                    "type":
+                                    {
+                                        "description": "Type of operation to be performed",
+                                        "type": "string"
+                                    },
                                     "recurrent_type": 
                                     {
+                                        "description": "Type of RNN to be used",
                                         "type":"string",
                                         "enum": ["GRU", "LSTM"]
                                     }
@@ -334,8 +340,7 @@
                             {
                                 "type_layer": {
                                     "description": "Type of layer",
-                                    "type": "string",
-                                    "enum": ["Dense", "Dropout"]
+                                    "type": "string"
                                 },
                                 "name": {
                                     "description": "Name given to this layer.",
@@ -370,28 +375,27 @@
                 },
                 "optimizer": 
                 {
-                    "description": "Name of the optimizer to use.",
+                    "description": "Definition of the optimizer to use.",
                     "type": "object",
                     "properties":
                     {
                         "type":
                         {
-                            "type": "string",
-                            "enum": ["Adam", "SGD"]
+                            "description": "Name of the optimizer.",
+                            "type": "string"
                         }
                     }
                 },
                 "schedule": 
                 {
-                    "description": "Name of the schedule to use",
+                    "description": "Definition of the schedule to use",
                     "type": "object",
                     "properties": 
                     {
                         "type": 
                         {
                             "description": "Name of the schedule type",
-                            "type": "string",
-                            "enum": ["ExponentialDecay","PolynomialDecay"]
+                            "type": "string"
                         }
                     }
                 }

@@ -134,6 +134,7 @@
                     "combination_definition": "path_interleave",
                     "update":
                     {
+                        "type": "apply_rnn",
                         "recurrent_type": "GRU"
                     }
                 }

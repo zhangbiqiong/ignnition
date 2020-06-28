@@ -102,17 +102,8 @@
                             "message": 
                             [
                                 {
-                                    "type": "apply_nn",
-                                    "nn_name": "aux",
-                                    "input": ["hs_source"],
-                                    "output_name": "hello"
-                                },
-                                {
-                                    "type": "apply_nn",
-                                    "nn_name": "aux",
-                                    "input": ["hs_dest", "hello"]
+                                    "type": "None"
                                 }
-
                             ],
                             "aggregation": "sum",
                             "update": 

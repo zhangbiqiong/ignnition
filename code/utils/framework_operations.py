@@ -26,6 +26,9 @@ import datetime
 import warnings
 from generate_model import *
 from json_operations import *
+import glob
+import tarfile
+import json
 
 CONFIG = configparser.ConfigParser()
 CONFIG._interpolation = configparser.ExtendedInterpolation()
@@ -37,9 +40,44 @@ warnings.filterwarnings("ignore")
 
 def create_model():
     json_path = CONFIG['PATHS']['json_path']
-    model_info = Model_information(json_path)  # read json
+    dimensions = find_dataset_dimensions(CONFIG['PATHS']['train_dataset'])
+    model_info = Model_information(json_path, dimensions)  # read json
 
     return model_info
+
+
+def find_dataset_dimensions(path):
+    sample = glob.glob(str(path) + '/*.tar.gz')[0]  #choose one single file to extract the dimensions
+    try:
+        tar = tarfile.open(sample, 'r:gz')  # read the tar files
+    except:
+        tf.compat.v1.logging.error('IGNNITION: The file data.txt was not found in ', sample)
+        sys.exit(1)
+
+    try:
+        # file_samples = tar.extractfile('data.json')
+        file_samples = tar.extractfile('data.txt')
+        sample_data = json.load(file_samples)[0]  # one single sample
+        dimensions = {}
+        for k, v in sample_data.items():
+            if not isinstance(v,dict):  #if it's a feature
+                if isinstance(v[0], list):
+                    dimensions[k] = len(v[0])
+                else:
+                    dimensions[k] = 1
+
+            elif v:   #if its either the entity or an adjacency (it is a dictionary, that is non-empty)
+                first_key = list(v.keys())[0]
+                element = v[first_key]
+                if (not isinstance(element[0], str)) and isinstance (element[0], list):
+                    dimensions[k] = len(element[0][1])  #the element[0][1] is the adjacency node. The second is the edge information
+                else:
+                    dimensions[k] = 0
+        return dimensions
+
+    except:
+        tf.compat.v1.logging.error('IGNNITION: Failed to read the data file ', sample)
+        sys.exit(1)
 
 
 def train_and_evaluate(model):

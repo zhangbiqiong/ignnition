@@ -120,39 +120,9 @@ class Model_information:
         Returns the size of a feature
 
     get_adjecency_info(self)
-
-    set_entity(self, name, hidden_state_dimension)
-        Sets an entity to have a certain hidden-state dimension
-
-    set_feature(self, name, size=1, normalization = None)
-        Sets a feature to a certain entity
-
-    set_num_iterations(self, it)
-        Sets a number of iterations for the mp phase
-
-    create_mp_step(self,name)
-        Creates a message passing step
-
-    create_message_passing(self, type, source, destination, adj_vector)
-        Creates a message passing
-
-    add_combined_mp(self, step, destination_entity, message_combination, update)
-        Create a combined message passing
-
-    create_readout(self, type, entity, output_label, output_normalization=None, output_denormalization = None)
-        Creates a readout model
-
-    set_loss(self, l)
-        Sets the loss of the model
-
-    set_optimizer(self, **o)
-        Sets the optimizer of the model
-
-    set_schedule(self, **dict)
-        Sets the schedule of the model
     """
 
-    def __init__(self, path = None):
+    def __init__(self, path, dimensions):
         """
         Parameters
         ----------
@@ -160,31 +130,21 @@ class Model_information:
             Path of the json file with the model description
         """
 
-        #in case JSON is used
-        if path != None:
-            data = self.__read_json(path)
-            validate(instance=data,schema=self.__read_json('./utils/schema.json'))  # validate that the json is well defined
+        #read and validate the json file
+        data = self.__read_json(path)
+        validate(instance=data,schema=self.__read_json('./utils/schema.json'))  # validate that the json is well defined
+        self.__validate_model_description(data)
+        self.__add_dimensions(data, dimensions) #add the dimension of the features and of the edges
 
-            self.__validate_model_description(data)
+        self.nn_architectures = self.__obtain_feed_forward_mapping(data['feed_forward_models'])
+        self.entities = self.__obtain_entities(data['entities'])
+        self.iterations_mp = data['mp_phase']['num_iterations']
+        self.mp_instances = self.__obtain_mp_instances(data['mp_phase']['architecture'])
+        self.combined_mp_options = self.__calculate_mp_combination_options(data)    #if there is any
+        self.outputs = self.__obtain_output_models(data['output'])
+        self.training_options = self.__obtain_training_options(data)
+        self.entities_dimensions = self.__get_entities_dimensions()
 
-            self.nn_architectures = self.__obtain_feed_forward_mapping(data['feed_forward_models'])
-            self.entities = self.__obtain_entities(data['entities'])
-            self.iterations_mp = data['mp_phase']['num_iterations']
-            self.mp_instances = self.__obtain_mp_instances(data['mp_phase']['architecture'])
-            self.combined_mp_options = self.__calculate_mp_combination_options(data)    #if there is any
-            self.outputs = self.__obtain_output_models(data['output'])
-            self.training_options = self.__obtain_training_options(data)
-            self.entities_dimensions = self.__get_entities_dimensions()
-
-        #in case API is used
-        else:
-          self.entities = []
-          self.iterations_mp = 8  #default
-          self.mp_instances = []
-          self.combined_mp_options = {}
-          self.outputs = []
-          self.training_options = {}
-          self.entities_dimensions = {}
 
 
     #PRIVATE
@@ -199,6 +159,20 @@ class Model_information:
         with open(path) as json_file:
             data = json.load(json_file)
             return data
+
+
+    def __add_dimensions(self, data, dimensions):
+        for e in data['entities']:
+            for f in e['features']:
+                name = f['name']
+                e['size'] = dimensions[name]    #add the dimension of the feature
+
+        for s in data['mp_phase']['architecture']:
+            aux = s['mp_step']
+            for a in aux:
+                name = a['adj_vector']
+                a['extra_parameters'] = dimensions[name]
+
 
 
     #validata that all the nn_name are correct. Validate that all source and destination entities are correct. Validate that all the inputs in the message function are correct
@@ -474,172 +448,3 @@ class Model_information:
                 result.append(instance.get_instance_info())
 
         return result
-
-
-    #----------------------------------------------------------------
-
-    #PUBLIC SETTERS (API)
-    def set_entity(self, name, hidden_state_dimension):
-        """
-        Parameters
-        ----------
-        name:    str
-           Name of the entity
-        hidden_state_dimension:    int
-           Dimension of the hidden states of this entity nodes
-        """
-
-        e = Entity({"name":name,
-                    "hidden_state_dimension": hidden_state_dimension})
-        self.entities.append(e)
-        self.entities_dimensions[name] = hidden_state_dimension
-
-    def set_feature(self, name, size=1, normalization = None):
-        """
-        Parameters
-        ----------
-        name:    str
-           Name of the entity
-        size:    int (optional)
-           Dimension of the feature
-        size:    str (optional)
-           Type of normalization to be applied to this feature
-        """
-
-        if normalization == None:
-            normalization = "None"
-
-        f = Feature({"name":name,
-                     "size": size,
-                     "normalization": normalization})
-        self.entities[-1].add_feature(f)    #add the feature to the last added entity
-
-    def set_num_iterations(self, it):
-        """
-        Parameters
-        ----------
-        it:    int
-           Number of iterations of the algorithm
-        """
-
-        self.iterations_mp = it
-
-    def create_mp_step(self,name):
-        """
-        Parameters
-        ----------
-        name:    str
-           Name of the message passing step
-        """
-
-        self.mp_instances.append([name, []])
-
-    def create_message_passing(self, type, source, destination, adj_vector):
-        """
-        Parameters
-        ----------
-        type:    str
-           Type of message passing
-        source:    int
-           Source entity of the message passing
-        destination: string
-            Destination entity of the message passing
-        adj_vector: sting
-            Name of the key in the dataset with the adjacency list from source entity to destination entity
-        """
-
-        m = Message_Passing({
-            "type":type,
-            "destination_entity": destination,
-            "source_entity": source,
-            "adj_vector": adj_vector
-        })
-        self.mp_instances[-1][1].append(m)
-        return m
-
-
-    def add_combined_mp(self, step, destination_entity, message_combination, update):
-        """
-        Parameters
-        ----------
-        step:    str
-            Step of the algorithm in which this combined message passing is located
-        destination_entity: str
-            Destination of the combined message passing
-        message_combination:    str
-            Type of combination of the messages from different source entities
-        update:     str
-            Update type that the destination nodes shall use
-        """
-
-        if step not in self.combined_mp_options:
-            self.combined_mp_options[step] = []
-
-        self.combined_mp_options[step].append({
-            "destination_entity":destination_entity,
-            "message_combination": message_combination,
-            "update": update,
-        })
-
-
-    def create_readout(self, type, entity, output_label, output_normalization=None, output_denormalization = None):
-        """
-        Parameters
-        ----------
-        type:    str
-            Type of readout (local or global)
-        entity:     str
-            Entity which hidden states shall be used for the predicitons
-        output_label:   str
-            Key from the dataset where the data of labels can be found
-        output_normalization:   str
-            Strategy to normalize the labels and the predictions. Should match with a functioned defined in main.py.
-        output_denormalization:     str
-            Strategy to denormalize the labels and the predictions. Should match with a functioned defined in main.py.
-        """
-
-        if output_normalization == None:
-            output_normalization = "None"
-
-        r = Readout_model({
-            "type":type,
-            "entity": entity,
-            "output_label": output_label,
-            "output_normalization": output_normalization,
-            "output_denormalization": output_denormalization
-        })
-        self.outputs.append(r)
-        return r
-
-
-    def set_loss(self, l):
-        """
-        Parameters
-        ----------
-        dict:    dict
-           Dictionary with the parameters to create the loss model form keras.
-        """
-
-        self.training_options['loss'] = l
-
-    def set_optimizer(self, **o):
-        """
-        Parameters
-        ----------
-        dict:    dict
-           Dictionary with the parameters to create the optimizer model form keras.
-        """
-
-        self.training_options['optimizer'] = o
-
-
-    def set_schedule(self, **dict):
-        """
-        Parameters
-        ----------
-        dict:    dict
-           Dictionary with the parameters to create the schedule model form keras.
-        """
-
-        self.training_options['schedule'] = dict
-

@@ -31,7 +31,7 @@ In order to start using IGNITTION, we provide two use-cases so that the user can
 We provide the model_description.json file to generate the model.
 
 ### Dataset
-A dataset.json file is incorporated, however this is just a subset of the real datatset. For this reason the user should follow several steps to produce the complete one.
+A dataset.json file is incorporated, however this is just a subset of the real datatset. For this reason the user should follow several steps to produce the complete one for the Routenet use-case.
 
 In order to obtain the full datasets to properly replicate these experiments, it is first necessary to download some datasets from the [repository](https://github.com/knowledgedefinednetworking/NetworkModelingDatasets/tree/master/datasets_v0). In it you can find three datasets with samples simulated with a custom packed-level simulator in three different topologies: NSFNET(2GB), GEANT(6GB) and synthetic 50 nodes (28.7 GB) topologies. To download an decompress any of the three datasets you can use the followin commands:
 ```
@@ -60,7 +60,7 @@ Finally, execute the framework by placing the scope in the ['code' directory](co
 python3 main.py
 ```
 
-With this, a debug_model directory should be generated and the a trained model should be produced.
+With this, a debug_model directory should be generated as well as the trained model.
 
 
 ## 'How to' guide

@@ -176,7 +176,6 @@ class Combined_mp:
         params = dict['update']
 
         if params['type'] == 'apply_rnn':
-            print(params)
             self.update = Apply_rnn(params)
             #type = params['recurrent_type']
             #del params['recurrent_type']
@@ -254,7 +253,7 @@ class Message_Passing:
         self.destination_entity = m['destination_entity']
         self.source_entity = m['source_entity']
         self.adj_vector = m['adj_vector']
-        self.extra_parameters = 0
+        self.extra_parameters = m['extra_parameters']
 
 
         if 'aggregation' in m:
@@ -266,14 +265,6 @@ class Message_Passing:
         if 'message' in m:
             self.message_formation = self.create_message_formation(m['message'])
 
-            #self.formation_type = self.find_type_of_message_creation(m['message_formation']['message_neural_net'])
-
-            #if 'number_extra_parameters' in m['message_formation']:
-            #    self.extra_parameters = m['message_formation']['number_extra_parameters']
-
-            #if self.formation_type == 'feed_forward':
-            #    self.message_formation = self.create_message_formation(m['message_formation'])
-
 
     def create_update(self, u):
         if u["type"] == 'apply_nn':
@@ -281,28 +272,6 @@ class Message_Passing:
 
         if u['type'] == 'apply_rnn':
             return Apply_rnn(u)
-
-
-    # def create_update(self,dict):
-    #     """
-    #     Parameters
-    #     ----------
-    #     dict:    dict
-    #         Dict with the parameters to be passed to the specific update model
-    #     """
-    #
-    #     if dict['update_type'] == 'recurrent':
-    #         parameters = dict.copy()
-    #         del parameters['update_type']
-    #         del parameters['recurrent_type']
-    #
-    #         parameters['name'] = self.destination_entity + '_update'
-    #
-    #         return Recurrent_Cell(dict['recurrent_type'], parameters)
-    #
-    #     elif dict['update_type'] == 'feed_forward':
-    #         f = Feed_forward_model({'architecture':dict['architecture']}, model_role="update")
-    #         return f
 
 
     def find_type_of_message_creation(self, type):
@@ -329,22 +298,6 @@ class Message_Passing:
                 result.append(Operation("None"))
             counter += 1
         return result
-
-
-    # def create_message_formation(self, dict):
-    #     """
-    #     Parameters
-    #     ----------
-    #     dict:    dict
-    #         Dict with the parameters to pass to the feed-forward architecture
-    #     """
-    #
-    #     if 'number_extra_parameters' in dict:
-    #         self.extra_parameters = dict['number_extra_parameters']
-    #
-    #
-    #     f = Feed_forward_message_creation(dict['architecture'], self.extra_parameters)
-    #     return f
 
 
     def get_instance_info(self):

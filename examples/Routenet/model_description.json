@@ -135,7 +135,7 @@
 
     ],
         
-    "training_hyperparameters":
+    "learning_options":
     {
         "loss": "MeanSquaredError",
         "optimizer":

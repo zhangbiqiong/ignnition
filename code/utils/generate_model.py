@@ -228,7 +228,7 @@ class ComnetModel(tf.keras.Model):
                                     elif i == 'hs_dest':
                                         input_dimension += int(self.entities_dimensions[dst_entity])
                                     elif i == 'edge_params':
-                                        input_dimension += 5 #need to know this number
+                                        input_dimension += int(message.extra_parameters)
                                     else:
                                         dimension = getattr(self, i + '_dim')
                                         input_dimension += dimension
@@ -342,8 +342,6 @@ class ComnetModel(tf.keras.Model):
                 messages_to_combine = combined_models[step]
                 for mp in messages_to_combine:
                     dst_entity = mp.destination_entity
-                    src_entity = mp.source_entity
-                    var_name = dst_entity + "_ff_update"
                     model_op = mp.update
 
                     if model_op.type == 'recurrent_nn':

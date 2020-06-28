@@ -37,12 +37,6 @@
                                 "description": "Name of the feature",
                                 "type": "string"
                             },
-                            "size": 
-                            {
-                                "description": "Inner dimension of the feature spacee",
-                                "type": "number",
-                                "exclusiveMinimum": 0
-                            },
                             "normalization":
                             {
                                 "description": "What kind of regularization apply to this feature",

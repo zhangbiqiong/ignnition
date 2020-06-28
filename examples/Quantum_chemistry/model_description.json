@@ -7,8 +7,7 @@
             "features":
             [
                 {
-                    "name": "element",
-                    "size": 5
+                    "name": "element"
                 },
                 {
                     "name": "atomic_number"
@@ -23,8 +22,7 @@
                     "name": "aromatic"
                 },
                 {
-                    "name": "hybridization",
-                    "size": 3
+                    "name": "hybridization"
                 }
             ]
         }

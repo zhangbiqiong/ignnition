@@ -887,8 +887,7 @@ def model_fn(features,labels,mode):
             labels = eval(output_denormalizations[0])(labels, output_names[0])
             predictions = eval(output_denormalizations[0])(predictions, output_names[0])
         except:
-            tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_names[0] + ' was not defined. The output will be normalized.')
-
+            tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_names[0] + ' was not defined. The output (and statistics) will use the normalized values.')
 
         #metrics calculations
         label_mean = tf.keras.metrics.Mean()

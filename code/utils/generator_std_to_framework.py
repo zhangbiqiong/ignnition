@@ -77,10 +77,9 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
     adjecencies_names = [[x[0].decode('ascii'),x[1].decode('ascii'),x[2].decode('ascii'), x[3].decode('ascii'), x[4].decode('ascii')] for x in adjecencies_names]
     interleave_names = [[i[0].decode('ascii'), i[1].decode('ascii')] for i in interleave_names]
 
-
     samples = glob.glob(str(dir)+'/*.tar.gz')
 
-    if shuffle == 'True':
+    if shuffle == True:
         random.shuffle(samples)
 
     for sample_file in samples:

@@ -31,7 +31,7 @@
             [
                 {
                     "step_name": "step1",
-                    "message_passings":
+                    "mp_step":
                     [
                         {
                             "type": "single_source",

@@ -74,7 +74,7 @@
                             "step_name": {
                                 "type": "string"
                             },
-                            "message_passings":
+                            "mp_step":
                             {
                                 "type": "array",    
                                 "items": {
@@ -208,7 +208,7 @@
                                 }
                             }
                         },
-                        "require": ["message_passings"]
+                        "require": ["mp_step", "step_name"]
                     }
                 },
                 "combined_message_passing_options":

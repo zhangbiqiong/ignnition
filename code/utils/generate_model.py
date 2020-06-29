@@ -168,6 +168,7 @@ def tfrecord_input_fn(data_dir, shuffle=False, training = True):
         with tf.name_scope('create_iterator') as _:
             if training:
                 ds = ds.prefetch(100)
+                ds = tf.compat.v1.data.make_initializable_iterator(ds)
             else:
                 ds = tf.compat.v1.data.make_initializable_iterator(ds)
 
@@ -210,7 +211,6 @@ class ComnetModel(tf.keras.Model):
 
                         counter = 0
                         for operation in operations:
-
                             if operation.type == 'feed_forward_nn':
                                 src_entity = message.source_entity
                                 dst_entity = message.destination_entity
@@ -465,86 +465,60 @@ class ComnetModel(tf.keras.Model):
 
                                      counter = 0
                                      for model in message_creation_models:
+
                                         if model.type == 'feed_forward_nn':
-                                            var_name = src_name + "_to_" + dst_name + '_message_creation_' + str(counter)  #careful. This name could overlap with another model
-                                            message_creator = getattr(self, var_name)
-                                            first = True
-                                            for i in model.input:
-                                                if i == 'hs_source':
-                                                    if first:
-                                                        input_nn = src_hs
-                                                        first = False
+                                            with tf.name_scope('apply_nn_' + str(counter)) as _:
+                                                var_name = src_name + "_to_" + dst_name + '_message_creation_' + str(counter)  #careful. This name could overlap with another model
+                                                message_creator = getattr(self, var_name)
+                                                first = True
+                                                with tf.name_scope('create_input') as _:
+                                                    for i in model.input:
+                                                        if i == 'hs_source':
+                                                            if first:
+                                                                input_nn = src_hs
+                                                                first = False
 
-                                                    else:
-                                                        input_nn = tf.concat([input_nn, src_hs], axis = 1)
+                                                            else:
+                                                                input_nn = tf.concat([input_nn, src_hs], axis = 1)
 
-                                                elif i == 'hs_dest':
-                                                    h_states_dest = tf.gather(dst_hs, destinations)
+                                                        elif i == 'hs_dest':
+                                                            h_states_dest = tf.gather(dst_hs, destinations)
 
-                                                    if first:
-                                                        input_nn = h_states_dest
-                                                        first = False
+                                                            if first:
+                                                                input_nn = h_states_dest
+                                                                first = False
 
-                                                    else:
-                                                        input_nn = tf.concat([input_nn, h_states_dest], axis=1)
+                                                            else:
+                                                                input_nn = tf.concat([input_nn, h_states_dest], axis=1)
 
 
-                                                elif i == 'edge_params':
-                                                    edge_params = tf.cast(input['params_' + message.adj_vector], tf.float32)
+                                                        elif i == 'edge_params':
+                                                            edge_params = tf.cast(input['params_' + message.adj_vector], tf.float32)
 
-                                                    if first:
-                                                        input_nn = edge_params
-                                                        first = False
-                                                    else:
-                                                        input_nn = tf.concat([input_nn, edge_params], axis=1)
+                                                            if first:
+                                                                input_nn = edge_params
+                                                                first = False
+                                                            else:
+                                                                input_nn = tf.concat([input_nn, edge_params], axis=1)
 
-                                                else:   #it is the output of a previous operation
-                                                    other_tensor = getattr(self, i + '_var')
-                                                    if first:
-                                                        input_nn = other_tensor
-                                                        first = False
-                                                    else:
-                                                        input_nn = tf.concat([input_nn, other_tensor], axis=1)
+                                                        else:   #it is the output of a previous operation
+                                                            other_tensor = getattr(self, i + '_var')
+                                                            if first:
+                                                                input_nn = other_tensor
+                                                                first = False
+                                                            else:
+                                                                input_nn = tf.concat([input_nn, other_tensor], axis=1)
 
-                                            result = message_creator(input_nn)
-                                            if model.output_name != 'None':
-                                                setattr(self, model.output_name + '_var', result)
 
-                                            messages = result   #by default, the message is always the result from the last operation
+                                                with tf.name_scope('update') as _:
+                                                    result = message_creator(input_nn)
+                                                    if model.output_name != 'None':
+                                                        setattr(self, model.output_name + '_var', result)
+
+                                                    messages = result   #by default, the message is always the result from the last operation
 
 
                                         counter +=1
-
-                                     # if message.formation_type == 'feed_forward':
-                                     #     var_name = src_name + "_to_" + dst_name + '_message_creation'
-                                     #     message_creator = getattr(self, var_name)
-                                     #
-                                     #     #get the hidden states of the destination
-                                     #     dst_hs = getattr(self, dst_name + '_state')
-                                     #
-                                     #     #obtain the right hs for each of the adjacencies from source to destination entity
-                                     #     h_states_dest = tf.gather(dst_hs, destinations)
-                                     #
-                                     #     # concatenate the hidden state of the source and destination.
-                                     #     ff_input = tf.concat([h_states, h_states_dest], axis=1)
-                                     #
-                                     #     #concat to the input additional parameters if so needed.
-                                     #     if message.message_formation.num_extra_parameters != 0:
-                                     #         params = tf.cast(input['params_'+ message.adj_vector], tf.float32)
-                                     #         #if tf.shape(params)[0] != message.message_formation.num_extra_parameters:
-                                     #             #tf.compat.v1.logging.error('IGNNITION: The number of parameters for adjacency ' + message.adj_vector + ' was supposed to be ' +
-                                     #             #                           str(message.message_formation.num_extra_parameters) + ' but it was of ' + tf.size(params) + ' instead.')
-                                     #         #    sys.exit(1)
-                                     #
-                                     #         ff_input = tf.concat([ff_input, params], axis = 1)
-                                     #
-                                     #     h_states = message_creator(ff_input)
-                                     #
-                                     # else:
-                                     #     pass
-                                     #     #tf.compat.v1.logging.warn('IGNNITION: Only the hidden states of ' + dst_name + ' will be considered. Any extra parameter will be ignored.')
-                                     #
-
 
 
                                  #treating the individual message passings
@@ -855,7 +829,7 @@ def model_fn(features,labels,mode):
         output_names, _, output_denormalizations = model_info.get_output_info()  # for now suppose we only have one output type
 
         try:
-            predictions = eval(output_denormalizations[0])(predictions)
+            predictions = eval(output_denormalizations[0])(predictions, output_names[0])
         except:
             tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_names[0] + ' was not defined. The output will be normalized.')
 

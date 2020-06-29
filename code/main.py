@@ -47,9 +47,9 @@ def exp(feature, feature_name):
 
 def main():
     model = framework.create_model()
-    framework.debug(model)
-    framework.train_and_evaluate(model)
-    #framework.predict(model)
+    #framework.debug(model)
+    #framework.train_and_evaluate(model)
+    framework.predict(model)
 
 if __name__ == "__main__":
         main ()

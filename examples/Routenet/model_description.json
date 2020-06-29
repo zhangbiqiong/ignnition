@@ -56,7 +56,7 @@
                 },
                 {
                     "step_name": "step2",
-                    "message_passings":[
+                    "mp_step":[
                         {
                             "type": "single_source",
                             "source_entity": "path",
@@ -103,25 +103,14 @@
                     "name": "First_dense_layer",
                     "type_layer":"Dense",
                     "units": 256,
-                    "kernel_regularizer": 0.1,
                     "activation": "selu"
-                },
-                {
-                    "name": "First_dropout_layer",
-                    "type_layer":"Dropout",
-                    "rate":0.5
                 },
                 {
                     "name": "Second_dense_layer",
                     "type_layer":"Dense",
                     "units": 256,
                     "kernel_regularizer": 0.1,
-                    "activation": "selu"
-                },
-                {
-                    "name": "Third_dropout_layer",
-                    "type_layer":"Dropout",
-                    "rate":0.5
+                    "activation": "relu"
                 },
                 {
                     "name": "Output_layer",

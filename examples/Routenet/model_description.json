@@ -87,7 +87,6 @@
             "entity": "path",
             "output_label": "delay",
             "output_normalization": "log",
-            "output_denormalization": "exp",
             "nn_name": "readout_model"
         }
     ],
@@ -103,6 +102,7 @@
                     "name": "First_dense_layer",
                     "type_layer":"Dense",
                     "units": 256,
+                    "kernel_regularizer": 0.1,
                     "activation": "selu"
                 },
                 {
@@ -110,7 +110,7 @@
                     "type_layer":"Dense",
                     "units": 256,
                     "kernel_regularizer": 0.1,
-                    "activation": "relu"
+                    "activation": "selu"
                 },
                 {
                     "name": "Output_layer",
@@ -135,8 +135,8 @@
         {
             "type": "ExponentialDecay",
             "initial_learning_rate":0.001,
-            "decay_steps":82000,
-            "decay_rate":0.8
+            "decay_steps":80000,
+            "decay_rate":0.6
         }
     }
 

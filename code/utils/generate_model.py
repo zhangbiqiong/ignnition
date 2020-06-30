@@ -168,7 +168,7 @@ def tfrecord_input_fn(data_dir, shuffle=False, training = True):
         with tf.name_scope('create_iterator') as _:
             if training:
                 ds = ds.prefetch(100)
-                ds = tf.compat.v1.data.make_initializable_iterator(ds)
+                #ds = tf.compat.v1.data.make_initializable_iterator(ds)
             else:
                 ds = tf.compat.v1.data.make_initializable_iterator(ds)
 
@@ -531,12 +531,12 @@ class ComnetModel(tf.keras.Model):
 
                                      #sum aggregation
                                      if aggregation == 'sum':
-                                         with tf.name_scope("agregate_sum_" + src_name) as _:
+                                         with tf.name_scope("aggregate_sum_" + src_name) as _:
                                              source_input = tf.math.unsorted_segment_sum(messages, destinations, num_dst)
 
                                      #ordered aggregation
                                      elif aggregation == 'ordered':
-                                         with tf.name_scope("agregate_ordered_" + src_name) as _:
+                                         with tf.name_scope("aggregate_ordered_" + src_name) as _:
                                              seq = input['seq_' + src_name + '_' + dst_name]
 
                                              ids = tf.stack([destinations, seq],axis=1)  # stack of pairs of the path value and its sequence value
@@ -547,7 +547,7 @@ class ComnetModel(tf.keras.Model):
 
                                              lens = tf.math.unsorted_segment_sum(tf.ones_like(destinations),
                                                                                  destinations,
-                                                                                 num_dst)  # destinations should be in order. CHECK!!
+                                                                                 num_dst)
 
                                              source_input = tf.scatter_nd(ids, messages, shape)
 

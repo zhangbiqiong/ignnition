@@ -23,31 +23,11 @@ import tensorflow as tf
 sys.path.append('./utils/')
 import framework_operations as framework
 
-def normalization_queue_size(feature, feature_name):
-    if feature_name == 'delay':
-        feature = (tf.math.log(feature) + 1.78) / 0.93
-    if feature_name == 'traffic':
-        feature = (feature - 0.28) / 0.15
-    if feature_name == 'jitter':
-        feature = (feature - 1.5) / 1.5
-    if feature_name == 'link_capacity':
-        feature = (feature - 27.0) / 14.86
-    if feature_name == 'queue_sizes':
-        feature = (feature - 16.5) / 15.5
-
-    return feature
-
-def log(feature, feature_name):
-    return tf.math.log(feature)
-
-def exp(feature, feature_name):
-    return tf.math.exp(feature)
-
 
 
 def main():
     model = framework.create_model()
-    #framework.debug(model)
+    framework.debug(model)
     framework.train_and_evaluate(model)
     #framework.predict(model)
 

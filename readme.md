@@ -45,7 +45,7 @@ tar -xvzf synth50.tar.gz
 
 Once any of them has been downloaded, we provide a script called migration.py in the same directory which is the one that will automatically migrate the raw dataset into the json format required by the framework. This files can be found be executed as follows:
 ```
-./migrate_to_JSON/migration.sh  <dataset_path> <output_path>
+python3 migrate.py --dataset <dataset_path> --output_path <output_path>
 ```
 
 #### Main.py

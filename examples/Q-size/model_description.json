@@ -157,59 +157,19 @@
                     "activation": "selu"
                 },
                 {
-                    "name": "First_dropout_layer",
-                    "type_layer":"Dropout",
-                    "rate":0.5
-                },
-                {
                     "name": "Second_dense_layer",
                     "type_layer":"Dense",
                     "units": 256,
                     "activation": "selu"
-                },
-                {
-                    "name": "Third_dropout_layer",
-                    "type_layer":"Dropout",
-                    "rate":0.5
-                },
+                }
                 {
                     "name": "Output_layer",
                     "type_layer":"Dense",
                     "units": 1,
-                    "activation": "selu"
-                }
-            ]
-        },
-        {
-            "model_name": "aux",
-            "model_architecture":
-            [
-                {
-                    "type_layer":"Dense",
-                    "units": 256,
-                    "activation": "selu"
-                },
-                {
-                    "type_layer":"Dropout",
-                    "rate":0.5
-                },
-                {
-                    "type_layer":"Dense",
-                    "units": 256,
-                    "activation": "selu"
-                },
-                {
-                    "type_layer":"Dropout",
-                    "rate":0.5
-                },
-                {
-                    "type_layer":"Dense",
-                    "units": 32,
-                    "activation": "selu"
+                    "activation": "None"
                 }
             ]
         }
-
     ],
 
     "learning_options":

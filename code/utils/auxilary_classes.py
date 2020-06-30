@@ -449,6 +449,7 @@ class Feed_forward_Layer:
         if 'activation' in parameters and parameters['activation'] == 'None':
             parameters['activation'] = None
 
+
     def get_tensorflow_object(self, l_previous):
         """
         Parameters

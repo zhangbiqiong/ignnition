@@ -23,7 +23,7 @@
         }
     ],
 
-    "mp_phase":
+    "message_passing":
         {
             "num_iterations": 8,
 
@@ -38,16 +38,16 @@
                             "source_entity": "link",
                             "destination_entity":"path",
                             "adj_vector": "adj_links_paths",
-                            "message": 
+                            "aggregation": "ordered",
+                            "message":
                             [
                                 {
-                                    "type": "None"
+                                    "type": "direct_assignation"
                                 }
                             ],
-                            "aggregation": "ordered",
                             "update": 
                             {
-                                "type": "apply_rnn",
+                                "type": "recurrent_neural_network",
                                 "recurrent_type": "GRU"
                             }
                             
@@ -65,13 +65,13 @@
                             "message": 
                             [
                                 {
-                                    "type": "None"
+                                    "type": "direct_assignation"
                                 }
                             ],
                             "aggregation": "sum",
                             "update": 
                             {
-                                "type": "apply_rnn",
+                                "type": "recurrent_neural_network",
                                 "recurrent_type": "GRU"
                             }
                         }]
@@ -80,23 +80,24 @@
         },
 
 
-    "output": 
+    "readout": 
     [
         {
-            "type_of_prediction": "node_prediction",
-            "entity": "path",
-            "output_label": "delay",
-            "output_normalization": "log",
+            "type": "predict",
+            "input": "path",
+            "label": "delay",
+            "label_normalization": "log",
             "nn_name": "readout_model"
         }
     ],
 
 
-    "feed_forward_models":
+    "neural_networks":
     [
         {
-            "model_name": "readout_model",
-            "model_architecture":
+            "nn_name": "readout_model",
+            "nn_type": "feed_forward",
+            "nn_architecture":
             [
                 {
                     "name": "First_dense_layer",
@@ -121,7 +122,6 @@
                 }
             ]
         }
-
     ],
         
     "learning_options":

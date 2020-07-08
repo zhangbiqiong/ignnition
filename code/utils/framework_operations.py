@@ -57,7 +57,7 @@ def find_dataset_dimensions(path):
 
     try:
         # file_samples = tar.extractfile('data.json')
-        file_samples = tar.extractfile('data.json')
+        file_samples = tar.extractfile('data.txt')
         sample_data = json.load(file_samples)[0]  # one single sample
         dimensions = {}
         for k, v in sample_data.items():
@@ -86,6 +86,7 @@ def str_to_bool(a):
         return True
     else:
         return False
+
 
 def train_and_evaluate(model):
     """
@@ -145,72 +146,71 @@ def train_and_evaluate(model):
 
 
 def predict(model_info):
-     """
-     Parameters
-     ----------
-     model_info:    object
-      Object with the json information model
-     """
+      """
+      Parameters
+      ----------
+      model_info:    object
+       Object with the json information model
+      """
 
-     print()
-     tf.compat.v1.logging.warn('IGNNITION: Starting to make the predictions...\n---------------------------------------------------------\n')
-     set_model_info(model_info)
+      print()
+      tf.compat.v1.logging.warn('IGNNITION: Starting to make the predictions...\n---------------------------------------------------------\n')
+      set_model_info(model_info)
 
-     graph = tf.Graph()
-     tf.compat.v1.disable_eager_execution()
+      graph = tf.Graph()
+      tf.compat.v1.disable_eager_execution()
 
-     try:
-         warm_path = CONFIG['PATHS']['warm_start_path']
-     except:
-         tf.compat.v1.logging.error('IGNNITION: The path of the model to use for the predictions is unspecified. Please add a field warm_start_path in the train_options.ini with the corresponding path to the model you want to restore.')
-         sys.exit(0)
+      try:
+          warm_path = CONFIG['PATHS']['warm_start_path']
+      except:
+          tf.compat.v1.logging.error('IGNNITION: The path of the model to use for the predictions is unspecified. Please add a field warm_start_path in the train_options.ini with the corresponding path to the model you want to restore.')
+          sys.exit(0)
 
-     try:
-         data_path = CONFIG['PATHS']['predict_dataset']
-     except:
-         tf.compat.v1.logging.error('IGNNITION: The path of dataset to use for the prediction is unspecified. Please add a field predict_dataset in the train_config.ini file with the corresponding path to the dataset you want to predict.')
-         sys.exit(0)
-
-
-     with graph.as_default():
-         model = ComnetModel()
-
-         it = tfrecord_input_fn(data_path, training=False)  #this should not return a label since we might not have one!!!!!!!!!!!!
-         features = it.get_next()
-         predictions = model(features, training=False)  #this predictions still need to be denormalized (or to do the predictions with the estimators)
-
-         #automatic denormalization
-         output_names, _, output_denormalizations = model_info.get_output_info()  # for now suppose we only have one output type
-         try:
-             pred = eval(output_denormalizations[0])(predictions, output_names[0])
-         except:
-             tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_names[
-                 0] + ' was not defined. The output will be normalized.')
+      try:
+          data_path = CONFIG['PATHS']['predict_dataset']
+      except:
+          tf.compat.v1.logging.error('IGNNITION: The path of dataset to use for the prediction is unspecified. Please add a field predict_dataset in the train_config.ini file with the corresponding path to the dataset you want to predict.')
+          sys.exit(0)
 
 
-     with tf.compat.v1.Session(graph=graph) as sess:
-         sess.run(tf.compat.v1.local_variables_initializer())
-         sess.run(tf.compat.v1.global_variables_initializer())
-         saver = tf.compat.v1.train.Saver()
+      with graph.as_default():
+          model = ComnetModel()
 
-         # path to the checkpoint we want to restore
-         saver.restore(sess, warm_path)
+          it = tfrecord_input_fn(data_path, training=False)  #this should not return a label since we might not have one!!!!!!!!!!!!
+          features = it.get_next()
+          predictions = model(features, training=False)  #this predictions still need to be denormalized (or to do the predictions with the estimators)
 
-         all_predictions = []
-         try:
-             sess.run(it.initializer)
-             while True:
-                 p = sess.run([pred])
-                 p = np.array(p)
-                 p = p.flatten()
-                 print(p)
-                 all_predictions.append(p)
+          #automatic denormalization
+          output_names, _, output_denormalizations = model_info.get_output_info()  # for now suppose we only have one output type
+          try:
+              pred = eval(output_denormalizations[0])(predictions, output_names[0])
+          except:
+              tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_names[
+                  0] + ' was not defined. The output will be normalized.')
 
-         except tf.errors.OutOfRangeError:
-             pass
 
-         return all_predictions
+      with tf.compat.v1.Session(graph=graph) as sess:
+          sess.run(tf.compat.v1.local_variables_initializer())
+          sess.run(tf.compat.v1.global_variables_initializer())
+          saver = tf.compat.v1.train.Saver()
 
+          # path to the checkpoint we want to restore
+          saver.restore(sess, warm_path)
+
+          all_predictions = []
+          try:
+              sess.run(it.initializer)
+              while True:
+                  p = sess.run([pred])
+                  p = np.array(p)
+                  p = p.flatten()
+                  print(p)
+                  all_predictions.append(p)
+
+          except tf.errors.OutOfRangeError:
+              pass
+
+          return all_predictions
 
 
 

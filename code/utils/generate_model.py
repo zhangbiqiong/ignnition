@@ -64,7 +64,7 @@ def normalization(x, feature_list, output_names, output_normalizations,y=None):
             try:
                 x[f_name] = eval(norm_type)(x[f_name], f_name)
             except:
-                tf.compat.v1.logging.error('IGNNITION: The normalization function ' + norm_type + ' is not defined in the main file.')
+                tf.compat.v1.logging.error('IGNNITION: The normalization function ' + str(norm_type) + ' is not defined in the main file.')
                 sys.exit(1)
 
 
@@ -79,7 +79,7 @@ def normalization(x, feature_list, output_names, output_normalizations,y=None):
                 try:
                     y = eval(norm_type)(y, output_names[i])
                 except:
-                    tf.compat.v1.logging.error('IGNNITION: The normalization function ' + norm_type + ' is not defined in the main file.')
+                    tf.compat.v1.logging.error('IGNNITION: The normalization function ' + str(norm_type) + ' is not defined in the main file.')
                     sys.exit(1)
         return x, y
 
@@ -164,11 +164,11 @@ def tfrecord_input_fn(data_dir, shuffle=False, training = True):
             else:
                 ds = ds.map(lambda x, y: normalization(x, feature_list, output_names, output_normalizations, y))
 
+
         ds = ds.repeat()
         with tf.name_scope('create_iterator') as _:
             if training:
                 ds = ds.prefetch(100)
-                #ds = tf.compat.v1.data.make_initializable_iterator(ds)
             else:
                 ds = tf.compat.v1.data.make_initializable_iterator(ds)
 
@@ -359,33 +359,32 @@ class ComnetModel(tf.keras.Model):
 
 
             #Create the several readout models
-            outputs = model_info.get_output_models()
-            model_counter = 0
-            for output in outputs:
-                model_counter += 1
-                with tf.name_scope('readout_architecture' + str(model_counter)) as _:
-                    var_name = output.entity + '_' + str(model_counter)
-                    input_dimension = int(self.entities_dimensions[output.entity])
+            readout_operations = model_info.get_readout_operations()
+            for operation in readout_operations:
+                if operation.type == "predict":
+                    with tf.name_scope("readout_architecture"):
+                        # right now this doesnt change because the pooling will reduce the amount of samples but not the dimensionality of a sample itself.
 
-                    setattr(self, str(var_name)+"_layer_"+str(0), tf.keras.Input(shape = (input_dimension,)))
+                        input_dimension = int(self.entities_dimensions[operation.input])
+                        setattr(self, str(operation.input)+"_layer_"+str(0), tf.keras.Input(shape = (input_dimension,)))
 
-                    layer_counter = 1
-                    layers = output.layers
-                    for l in layers:
-                        l_previous = getattr(self, str(var_name)+"_layer_"+str(layer_counter -1))
-                        try:
-                            layer = l.get_tensorflow_object(l_previous)
-                            setattr(self, str(var_name)+"_layer_"+str(layer_counter), layer)
-                        except:
-                            tf.compat.v1.logging.error(
-                                'IGNNITION: The layer ' + str(layer_counter) + ' of the readout is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
-                            sys.exit(1)
+                        layer_counter = 1
+                        layers = operation.architecture.layers
+                        for l in layers:
+                            l_previous = getattr(self, str(operation.input)+"_layer_"+str(layer_counter -1))
+                            try:
+                                layer = l.get_tensorflow_object(l_previous)
+                                setattr(self, str(operation.input)+"_layer_"+str(layer_counter), layer)
+                            except:
+                                tf.compat.v1.logging.error(
+                                    'IGNNITION: The layer ' + str(layer_counter) + ' of the readout is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
+                                sys.exit(1)
 
-                        layer_counter += 1
+                            layer_counter += 1
 
-                    #Create the actual model with all the previous layers.
-                    setattr(self, 'output_' + str(model_counter) +'_'+str(var_name),
-                         tf.keras.Model(inputs=getattr(self,str(var_name)+"_layer_"+str(0)), outputs=getattr(self, str(var_name)+"_layer_"+str(layer_counter -1)), name = output.output_label + '_predictor' ))
+                        #Create the actual model with all the previous layers.
+                        setattr(self, 'output_' +str(operation.input),
+                             tf.keras.Model(inputs=getattr(self,str(operation.input)+"_layer_"+str(0)), outputs=getattr(self, str(operation.input)+"_layer_"+str(layer_counter -1)), name = operation.label + '_predictor' ))
 
 
 
@@ -396,7 +395,6 @@ class ComnetModel(tf.keras.Model):
         input:    dict
             Dictionary with all the tensors with the input information of the model
         """
-
         entities = model_info.entities
 
         #Initialize all the hidden states for all the nodes.
@@ -420,8 +418,8 @@ class ComnetModel(tf.keras.Model):
                             input[name_feature] = tf.reshape(input[name_feature], tf.stack([input['num_'+str(name)], size]))
 
                             if first:
-                             state = input[name_feature]
-                             first = False
+                                state = input[name_feature]
+                                first = False
                             else:
                                 state = tf.concat([state,input[name_feature]], axis=1, name="add_"+name_feature)
 
@@ -510,7 +508,7 @@ class ComnetModel(tf.keras.Model):
                                                                 input_nn = tf.concat([input_nn, other_tensor], axis=1)
 
 
-                                                with tf.name_scope('update') as _:
+                                                with tf.name_scope('create_message') as _:
                                                     result = message_creator(input_nn)
                                                     if model.output_name != 'None':
                                                         setattr(self, model.output_name + '_var', result)
@@ -770,39 +768,35 @@ class ComnetModel(tf.keras.Model):
 
 
         #perform the predictions
-        first = True
         with tf.name_scope('readout_predictions') as _:
-            outputs = model_info.get_output_models()
-            model_counter = 0
-            #for each of the readouts defined
-            for output in outputs:
-                model_counter += 1
+            readout_opeartions = model_info.get_readout_operations()
 
-                dst_name = output.entity
-                var_name = dst_name + '_' + str(model_counter)
-                model = getattr(self, 'output_' + str(model_counter) +'_'+str(var_name))
+            for operation in readout_opeartions:
+                if operation.type == "predict":
+                    model = getattr(self, 'output_' +str(operation.input))
 
-                input = getattr(self, dst_name + '_state')
+                    input = getattr(self, operation.input + '_state')
 
+                    r = model(input)    #predicting should only be done once.
+                    return r
 
-                # if the output we want to treat is graph, we need to aggregate all the inputs into a
-                # single value to make graph predictions. By default assume we sum all of them together.
-                if output.type == 'graph_prediction':
-                    input = tf.reduce_sum(input, 0)
-                    input = tf.reshape(input, [-1] + [input.shape.as_list()[0]])
+                if operation.type == "pooling":
+                    input = getattr(self, operation.input + '_state')
 
-                r = model(input)
+                    if operation.type_pooling == 'sum':
+                        input = tf.reduce_sum(input, 0)
+                        input = tf.reshape(input, [-1] + [input.shape.as_list()[0]])
 
-                #concatenate all the predictions of different readouts together. MAYBE PERFORM HERE THE DENORMALIZATION?
-                with tf.name_scope('Concatenate_' + output.output_label) as _:
-                    if first:
-                        predictions = r
-                        first = False
+                    elif operation.type_pooling == 'mean':
+                        input = tf.reduce_mean(input,0)
+                        input = tf.reshape(input, [-1] + [input.shape.as_list()[0]])
 
-                    else:
-                        predictions = tf.concat([predictions, r], axis = 0, name="Add_output_"+ str(model_counter))
+                    elif operation.type_pooling == 'max':
+                        input = tf.reduce_max(input,0)
+                        input = tf.reshape(input, [-1] + [input.shape.as_list()[0]])
 
-        return predictions
+                    setattr(self, operation.output_name + '_state', input)
+
 
 
 

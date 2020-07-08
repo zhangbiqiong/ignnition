@@ -107,8 +107,8 @@ class Model_information:
     get_loss(self)
         Returns the loss set in the model
 
-    get_output_models(self)
-        Returns the readout architectures of the model
+    get_output_operations(self)
+        Returns the readout architectur of the model in the form of operations
 
     get_output_info(self)
         ?
@@ -136,12 +136,12 @@ class Model_information:
         self.__validate_model_description(data)
         self.__add_dimensions(data, dimensions) #add the dimension of the features and of the edges
 
-        self.nn_architectures = self.__obtain_feed_forward_mapping(data['feed_forward_models'])
+        self.nn_architectures = self.__obtain_feed_forward_mapping(data['neural_networks'])
         self.entities = self.__obtain_entities(data['entities'])
-        self.iterations_mp = data['mp_phase']['num_iterations']
-        self.mp_instances = self.__obtain_mp_instances(data['mp_phase']['architecture'])
+        self.iterations_mp = data['message_passing']['num_iterations']
+        self.mp_instances = self.__obtain_mp_instances(data['message_passing']['architecture'])
         self.combined_mp_options = self.__calculate_mp_combination_options(data)    #if there is any
-        self.outputs = self.__obtain_output_models(data['output'])
+        self.readout_operations = self.__obtain_readout_operations(data['readout'])
         self.training_options = self.__obtain_training_options(data)
         self.entities_dimensions = self.__get_entities_dimensions()
 
@@ -167,7 +167,7 @@ class Model_information:
                 name = f['name']
                 e['size'] = dimensions[name]    #add the dimension of the feature
 
-        for s in data['mp_phase']['architecture']:
+        for s in data['message_passing']['architecture']:
             aux = s['mp_step']
             for a in aux:
                 name = a['adj_vector']
@@ -175,9 +175,9 @@ class Model_information:
 
 
 
-    #validata that all the nn_name are correct. Validate that all source and destination entities are correct. Validate that all the inputs in the message function are correct
+    #validate that all the nn_name are correct. Validate that all source and destination entities are correct. Validate that all the inputs in the message function are correct
     def __validate_model_description(self, data):
-        steps = data['mp_phase']['architecture']
+        steps = data['message_passing']['architecture']
 
         sources = []
         destinations = []
@@ -190,22 +190,23 @@ class Model_information:
                 sources.append(m['source_entity'])
                 destinations.append(m['destination_entity'])
 
-                for op in m['message']: #for every operation
-                    if op['type'] == 'apply_nn':
-                        nn_name_called.append(op['nn_name'])
-                        input_names += op['input']
+                if 'message' in m:
+                    for op in m['message']: #for every operation
+                        if op['type'] == 'neural_network':
+                            nn_name_called.append(op['nn_name'])
+                            input_names += op['input']
 
-                        if 'output_name' in op:
-                            output_names.append(op['output_name'])
+                            if 'output_name' in op:
+                                output_names.append(op['output_name'])
 
-        readouts = data['output']
+        readouts = data['readout']
         for r in readouts:
             nn_name_called.append(r['nn_name'])
 
 
         #now check the entities
         entity_names = [a['name'] for a in data['entities']]
-        nn_names = [a['model_name'] for a in data['feed_forward_models']]
+        nn_names = [a['nn_name'] for a in data['neural_networks']]
         try:
 
             for a in sources:
@@ -238,7 +239,7 @@ class Model_information:
         result = {}
 
         for m in models:
-            result[m['model_name']] = m['model_architecture']
+            result[m['nn_name']] = m['nn_architecture']
 
         return result
 
@@ -260,16 +261,16 @@ class Model_information:
 
         #we need to find out what the input dimension is
 
-
         #add the message_creation nn architecture
-        for op in m['message']:
-            if op['type'] == 'apply_nn':
-                architecture = copy.deepcopy(self.nn_architectures[op['nn_name']])
-                del op['nn_name']
-                op['architecture'] = architecture
+        if 'message' in m:
+            for op in m['message']:
+                if op['type'] == 'neural_network':
+                    architecture = copy.deepcopy(self.nn_architectures[op['nn_name']])
+                    del op['nn_name']
+                    op['architecture'] = architecture
 
         #add the update nn architecture
-        if 'update' in m and m['update']['type'] == 'apply_nn':
+        if 'update' in m and m['update']['type'] == 'neural_network':
             architecture = copy.deepcopy(self.nn_architectures[m['update']['nn_name']])
             del m['update']['nn_name']
             m['update']['architecture'] = architecture
@@ -301,7 +302,7 @@ class Model_information:
            Dictionary with the definition of each combined message passing
         """
 
-        m = data["mp_phase"]
+        m = data["message_passing"]
         if "combined_message_passing_options" in m.keys():
             aux = m["combined_message_passing_options"]
             dict = {}
@@ -325,18 +326,23 @@ class Model_information:
         return output
 
 
-    def __obtain_output_models(self, outputs):
+    def __obtain_readout_operations(self, output_operations):
         """
         Parameters
         ----------
-        outputs:    dict
-           Dictionary with the definition of each output model
+        output_operations:    dict
+           List of dictionaries with the definition of the operations forming one readout model
         """
-
         result = []
-        for output in outputs:
-            r = Readout_model(self.__add_readout_architecture(output))
-            result.append(r)
+        for op in output_operations:
+            if op['type'] == 'predict':
+                r = Predicting_operation(self.__add_readout_architecture(op))
+                result.append(r)
+
+            elif op['type'] == 'pooling':
+                r = Pooling_operation(op)
+                result.append(r)
+
         return result
 
 
@@ -419,13 +425,13 @@ class Model_information:
         return self.training_options['loss']
 
 
-    def get_output_models(self):
-        return self.outputs
+    def get_readout_operations(self):
+        return self.readout_operations
 
     def get_output_info(self):
-        result_names = [o.output_label for o in self.outputs]
-        result_norm = [o.output_normalization for o in self.outputs]
-        result_denorm = [o.output_denormalization for o in self.outputs]
+        result_names = [o.label for o in self.readout_operations if o.type=='predict']
+        result_norm = [o.label_normalization for o in self.readout_operations if o.type == 'predict']
+        result_denorm = [o.label_denormalization for o in self.readout_operations if o.type == 'predict']
         return result_names, result_norm, result_denorm
 
     def get_all_features(self):

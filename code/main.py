@@ -24,6 +24,9 @@ sys.path.append('./utils/')
 import framework_operations as framework
 
 
+def log(feature, feature_name):
+    return tf.math.log(feature)
+
 
 def main():
     model = framework.create_model()

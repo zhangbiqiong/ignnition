@@ -127,7 +127,7 @@ class Apply_nn(Operation):
             self.output_name = op['output_name']
 
         else:
-            self.output_name = 'None'
+            self.output_name = 'direct_assignation'
 
         #we need somehow to find the number of extra_parameters beforehand
         self.model = Feed_forward_message_creation(op['architecture'],counter, 0)
@@ -175,13 +175,10 @@ class Combined_mp:
 
         params = dict['update']
 
-        if params['type'] == 'apply_rnn':
+        if params['type'] == 'recurrent_neural_network':
             self.update = Apply_rnn(params)
-            #type = params['recurrent_type']
-            #del params['recurrent_type']
-            #self.update = Recurrent_Cell(type, params)
 
-        elif params['type'] == 'apply_nn':
+        elif params['type'] == 'neural_network':
             self.update = Apply_nn(params)
 
 
@@ -264,13 +261,15 @@ class Message_Passing:
 
         if 'message' in m:
             self.message_formation = self.create_message_formation(m['message'])
+        else:
+            self.message_formation = [Operation("direct_assignation")]
 
 
     def create_update(self, u):
-        if u["type"] == 'apply_nn':
+        if u["type"] == 'neural_network':
             return Apply_nn({'input': ['destination', 'aggregated'], 'architecture': u['architecture']})
 
-        if u['type'] == 'apply_rnn':
+        if u['type'] == 'recurrent_neural_network':
             return Apply_rnn(u)
 
 
@@ -281,7 +280,6 @@ class Message_Passing:
         type:    str
             Indicates if it uses a feed-forward, or the message is simply its hidden state
         """
-
         if type == 'yes':
             return 'feed_forward'
         return 'hidden_state'
@@ -291,11 +289,11 @@ class Message_Passing:
         result = []
         counter = 0
         for op in operations:
-            if op['type'] == 'apply_nn':
+            if op['type'] == 'neural_network':
                 result.append(Apply_nn(op, counter))
 
-            if op['type'] == 'None':
-                result.append(Operation("None"))
+            if op['type'] == 'direct_assignation':
+                result.append(Operation("direct_assignation"))
             counter += 1
         return result
 
@@ -572,7 +570,22 @@ class Feed_forward_message_creation(Feed_forward_model):
         self.num_extra_parameters = num_parameter
 
 
-class Readout_model(Feed_forward_model):
+class Readout_operation():
+    def __init__(self, op):
+        self.type = op['type']
+        self.input = op['input']
+        self.label = op['label']
+        self.label_normalization = None
+        self.label_denormalization = None
+
+        if 'label_normalization' in op:
+            self.label_normalization = op['label_normalization']
+
+        if 'label_denormalization' in op:
+            self.label_denormalization = op['label_denormalization']
+
+
+class Predicting_operation(Readout_operation):
     """
     Attributes
     ----------
@@ -588,7 +601,7 @@ class Readout_model(Feed_forward_model):
         Denormalization strategy for the labels and predictions
     """
 
-    def __init__(self, output):
+    def __init__(self, operation):
         """
         Parameters
         ----------
@@ -596,15 +609,34 @@ class Readout_model(Feed_forward_model):
             Dictionary with the readout_model parameters
         """
 
-        super(Readout_model, self).__init__(output, model_role="readout")
-        self.type = output['type_of_prediction']
-        self.entity = output['entity']
-        self.output_label = output['output_label']
-        self.output_normalization = None
-        self.output_denormalization = None
+        super(Predicting_operation, self).__init__(operation)
+        self.architecture = Feed_forward_model({'architecture':operation['architecture']}, model_role="readout")
 
-        if 'output_normalization' in output:
-            self.output_normalization = output['output_normalization']
 
-        if 'output_denormalization' in output:
-            self.output_denormalization = output['output_denormalization']
+class Pooling_operation(Readout_operation):
+    """
+    Attributes
+    ----------
+    type:   str
+        Type of message passing (individual or combined)
+    entity:     str
+        Name of the destination entity which shall be used for the predictions
+    output_label:   str
+        Name found in the dataset with the labels to be predicted
+    output_normalization:   str (opt)
+        Normalization to be used for the labels and predictions
+    output_denormalization:     str (opt)
+        Denormalization strategy for the labels and predictions
+    """
+
+    def __init__(self, operation):
+        """
+        Parameters
+        ----------
+        output:    dict
+            Dictionary with the readout_model parameters
+        """
+
+        super(Pooling_operation, self).__init__(operation)
+        self.type_pooling = operation['type_pooling']
+

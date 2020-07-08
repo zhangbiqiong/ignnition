@@ -86,7 +86,8 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
         try:
             tar = tarfile.open(sample_file, 'r:gz')  #read the tar files
             try:
-                file_samples = tar.extractfile('data.json')
+                #file_samples = tar.extractfile('data.json')
+                file_samples = tar.extractfile('data.txt')
 
             except:
                 tf.compat.v1.logging.error('IGNNITION: The file data.txt was not found in ', sample_file )

@@ -50,7 +50,7 @@
               "required": ["name", "hidden_state_dimension", "features"]
             }},
 
-        "mp_phase": 
+        "message_passing": 
         {
             "description": "Message passing strategy",
             "type": "object",
@@ -110,7 +110,7 @@
                                                     {
                                                         "description": "Type of operation to apply",
                                                         "type": "string",
-                                                        "enum": ["apply_nn", "None"]
+                                                        "enum": ["neural_network", "direct_assignation"]
                                                     },
                                                     "nn_name":
                                                     {
@@ -133,7 +133,7 @@
                                                     }
                                                 },
                                                 "if": {
-                                                    "properties": { "type": { "const": "apply_nn" } }
+                                                    "properties": { "type": { "const": "neural_network" } }
                                                 },
                                                 "then": {
                                                     "required": ["nn_name", "input"]
@@ -157,7 +157,7 @@
                                                 {
                                                     "description": "Type of operation for the update given the aggregated and the current hs",
                                                     "type": "string",
-                                                    "enum": ["apply_nn", "apply_rnn"]
+                                                    "enum": ["neural_network", "recurrent_neural_network"]
                                                 },
                                                 "recurrent_type":
                                                 {
@@ -170,25 +170,26 @@
                                                     "description": "Reference the neural network to be used",
                                                     "type": "string"
                                                 }
-                                                },
-                                                "allOf": [
-                                                    {
-                                                        "if": {
-                                                            "properties": { "type": { "const": "apply_nn" } }
-                                                        },
-                                                        "then": {
-                                                            "required": ["nn_name"]
-                                                        }
+                                            },
+                                            "allOf": 
+                                            [
+                                                {
+                                                    "if": {
+                                                        "properties": { "type": { "const": "neural_network" } }
                                                     },
-                                                    {
-                                                        "if": {
-                                                            "properties": { "type": { "const": "apply_rnn" } }
-                                                        },
-                                                        "then": {
-                                                            "required": ["recurrent_type"]
-                                                        }
+                                                    "then": {
+                                                        "required": ["nn_name"]
                                                     }
-                                                ]
+                                                },
+                                                {
+                                                    "if": {
+                                                        "properties": { "type": { "const": "recurrent_neural_network" } }
+                                                    },
+                                                    "then": {
+                                                        "required": ["recurrent_type"]
+                                                    }
+                                                }
+                                            ]
                                         }
                                         
                                     },
@@ -203,7 +204,7 @@
                                         "properties": {"aggreagation": {"enum": ["sum", "ordered"]}},
                                         "required": ["update"]
                                     },
-                                    "required": ["type", "source_entity", "destination_entity", "aggregation", "adj_vector", "message"]
+                                    "required": ["type", "source_entity", "destination_entity", "aggregation", "message", "adj_vector"]
                                     
                                 }
                             }
@@ -244,16 +245,33 @@
                                     "type":
                                     {
                                         "description": "Type of operation to be performed",
-                                        "type": "string"
+                                        "type": "string",
+                                        "enum": ["neural_network", "recurrent_neural_network"]
                                     },
                                     "recurrent_type": 
                                     {
                                         "description": "Type of RNN to be used",
                                         "type":"string",
                                         "enum": ["GRU", "LSTM"]
+                                    },
+                                    "nn_name":
+                                    {
+                                        "description": "Reference the neural network to be used",
+                                        "type": "string"
                                     }
                                 },
-                                "required": ["recurrent_type"]
+                                "if":
+                                {
+                                    "properties": {"type":{"const": "type"}}
+                                },
+                                "then":
+                                {
+                                    "required": ["recurrent_type"]
+                                },
+                                "else":
+                                {
+                                    "required": ["nn_name"]
+                                }
                             }
                         },
                         "if": {
@@ -267,7 +285,7 @@
             },
             "required": ["num_iterations", "architecture"]
         },
-        "output":
+        "readout":
         {
             "type": "array",
             "items": 
@@ -276,38 +294,66 @@
                 "type": "object",
                 "properties": 
                 {
-                    "type_of_prediction": 
+                    "type": 
                     {
-                        "description": "Type of prediction we want to make",
+                        "description": "Type of operation",
                         "type": "string",
-                        "enum" : ["node_prediction", "graph_prediction"]
+                        "enum" : ["predict", "pooling"]
                     },
-                    "entity": 
+                    "type_pooling":
                     {
-                        "description": "Entity the hidden states of which we want to use for the prediction.",
+                        "description": "Type of operation to do pooling with",
+                        "type": "string",
+                        "enum": ["sum", "max", "mean"]
+                    },
+                    "input": 
+                    {
+                        "description": "Entity the hidden states of which we want to use for the prediction or name of a previous output name.",
                         "type": "string"
                     },
-                    "output_label": 
+                    "label": 
                     {
                         "description": "Label matching the dataset which contains the true labels of the predictions we aim to make.",
                         "type": "string"
                     },
-                    "output_normalization":
+                    "label_normalization":
                     {
-                        "description": "Normalization of the output",
+                        "description": "Normalization of the label",
+                        "type": "string"
+                    },
+                    "label_denormalization":
+                    {
+                        "description": "Denormalization of the label",
                         "type": "string"
                     },
                     "nn_name":
                     {
                         "description": "References the neural network to use as readout",
                         "type": "string"
+                    },
+                    "output_name":
+                    {
+                        "description": "Define an output name for the result, to reference it later",
+                        "type": "string"
                     }
                 },
-                "required": ["type_of_prediction", "entity", "output_label", "nn_name"]
+                "if":
+                {
+                    "properties": { "type": { "const": "predict" } }
+                },
+                "then":
+                {
+                    "require": ["nn_name", "label"]
+                },
+                "else":
+                {
+                    "require": ["type_pooling", "output_name", "input"]
+                },
+                "required": ["type"]
             }
         },
 
-        "feed_forward_models":
+        "neural_networks":
         {
             "description": "Here we describe all the feed_forward models that will be referenced later",
             "type": "array",
@@ -317,12 +363,24 @@
                 "type": "object",
                 "properties":
                 {
-                    "model_name":
+                    "nn_name":
                     {
                         "description": "Define the name of the model",
                         "type": "string"
                     },
-                    "model_architecture":
+                    "nn_type":
+                    {
+                        "description": "Define the type of neural network",
+                        "type": "string",
+                        "enum": ["feed_forward", "recurrent"]
+                    },
+                    "recurrent_type":
+                    {
+                        "description": "Type of recurrent neural network",
+                        "type": "string",
+                        "enum": ["GRU", "LSTM"]
+                    },
+                    "nn_architecture":
                     {
                         "description": "Define the architecture",
                         "type": "array",
@@ -345,12 +403,20 @@
 
                         },
                         "required": ["type_layer"]
-                        
                     }
-                    
-                }
-
-
+                },
+                "if": {
+                    "properties": { "nn_type": { "const": "feed_forward" } }
+                },
+                "then":
+                {
+                    "required": ["nn_architecture"]
+                },
+                "else":
+                {
+                    "required": ["recurrent_type"]
+                },
+                "required": ["nn_name", "nn_type"]
             }
 
         },

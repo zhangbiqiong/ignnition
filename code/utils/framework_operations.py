@@ -57,7 +57,7 @@ def find_dataset_dimensions(path):
 
     try:
         # file_samples = tar.extractfile('data.json')
-        file_samples = tar.extractfile('data.txt')
+        file_samples = tar.extractfile('data.json')
         sample_data = json.load(file_samples)[0]  # one single sample
         dimensions = {}
         for k, v in sample_data.items():

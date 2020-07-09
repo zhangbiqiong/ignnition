@@ -776,27 +776,27 @@ class ComnetModel(tf.keras.Model):
                 if operation.type == "predict":
                     model = getattr(self, 'output_' +str(operation.input))
 
-                    input = getattr(self, operation.input + '_state')
+                    prediction_input = getattr(self, operation.input + '_state')
 
-                    r = model(input)    #predicting should only be done once.
+                    r = model(prediction_input)    #predicting should only be done once.
                     return r
 
                 if operation.type == "pooling":
-                    input = getattr(self, operation.input + '_state')
+                    pooling_input = getattr(self, operation.input + '_state')
 
                     if operation.type_pooling == 'sum':
-                        input = tf.reduce_sum(input, 0)
-                        input = tf.reshape(input, [-1] + [input.shape.as_list()[0]])
+                        pooling_input = tf.reduce_sum(pooling_input, 0)
+                        pooling_input = tf.reshape(pooling_input, [-1] + [pooling_input.shape.as_list()[0]])
 
                     elif operation.type_pooling == 'mean':
-                        input = tf.reduce_mean(input,0)
-                        input = tf.reshape(input, [-1] + [input.shape.as_list()[0]])
+                        pooling_input = tf.reduce_mean(pooling_input,0)
+                        pooling_input = tf.reshape(pooling_input, [-1] + [pooling_input.shape.as_list()[0]])
 
                     elif operation.type_pooling == 'max':
-                        input = tf.reduce_max(input,0)
-                        input = tf.reshape(input, [-1] + [input.shape.as_list()[0]])
+                        pooling_input = tf.reduce_max(pooling_input,0)
+                        pooling_input = tf.reshape(pooling_input, [-1] + [pooling_input.shape.as_list()[0]])
 
-                    setattr(self, operation.output_name + '_state', input)
+                    setattr(self, operation.output_name + '_state', pooling_input)
 
 
 

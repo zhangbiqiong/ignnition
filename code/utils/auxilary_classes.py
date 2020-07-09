@@ -574,15 +574,7 @@ class Readout_operation():
     def __init__(self, op):
         self.type = op['type']
         self.input = op['input']
-        self.label = op['label']
-        self.label_normalization = None
-        self.label_denormalization = None
 
-        if 'label_normalization' in op:
-            self.label_normalization = op['label_normalization']
-
-        if 'label_denormalization' in op:
-            self.label_denormalization = op['label_denormalization']
 
 
 class Predicting_operation(Readout_operation):
@@ -611,6 +603,16 @@ class Predicting_operation(Readout_operation):
 
         super(Predicting_operation, self).__init__(operation)
         self.architecture = Feed_forward_model({'architecture':operation['architecture']}, model_role="readout")
+        self.label = operation['label']
+        self.label_normalization = None
+        self.label_denormalization = None
+
+        if 'label_normalization' in operation:
+            self.label_normalization = operation['label_normalization']
+
+        if 'label_denormalization' in operation:
+            self.label_denormalization = operation['label_denormalization']
+
 
 
 class Pooling_operation(Readout_operation):
@@ -639,4 +641,5 @@ class Pooling_operation(Readout_operation):
 
         super(Pooling_operation, self).__init__(operation)
         self.type_pooling = operation['type_pooling']
+        self.output_name = operation['output_name']
 

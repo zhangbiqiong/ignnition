@@ -59,8 +59,7 @@ def normalization(x, feature_list, output_names, output_normalizations,y=None):
     for f in feature_list:
         f_name = f.name
         norm_type = f.normalization
-
-        if norm_type != 'None':
+        if str(norm_type) != 'None':
             try:
                 x[f_name] = eval(norm_type)(x[f_name], f_name)
             except:
@@ -75,7 +74,7 @@ def normalization(x, feature_list, output_names, output_normalizations,y=None):
         for i in range(n):
             norm_type = output_normalizations[i]
 
-            if norm_type != 'None':
+            if str(norm_type) != 'None':
                 try:
                     y = eval(norm_type)(y, output_names[i])
                 except:
@@ -386,7 +385,9 @@ class ComnetModel(tf.keras.Model):
                         setattr(self, 'output_' +str(operation.input),
                              tf.keras.Model(inputs=getattr(self,str(operation.input)+"_layer_"+str(0)), outputs=getattr(self, str(operation.input)+"_layer_"+str(layer_counter -1)), name = operation.label + '_predictor' ))
 
-
+                if operation.type == 'pooling':
+                    dimensionality = self.entities_dimensions[operation.input]
+                    self.entities_dimensions[operation.output_name] = dimensionality
 
     def call(self, input, training=False):
         """

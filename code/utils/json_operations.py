@@ -136,7 +136,7 @@ class Model_information:
         self.__validate_model_description(data)
         self.__add_dimensions(data, dimensions) #add the dimension of the features and of the edges
 
-        self.nn_architectures = self.__obtain_feed_forward_mapping(data['neural_networks'])
+        self.nn_architectures = self.__obtain_neural_networks_mapping(data['neural_networks'])
         self.entities = self.__obtain_entities(data['entities'])
         self.iterations_mp = data['message_passing']['num_iterations']
         self.mp_instances = self.__obtain_mp_instances(data['message_passing']['architecture'])
@@ -199,9 +199,10 @@ class Model_information:
                             if 'output_name' in op:
                                 output_names.append(op['output_name'])
 
-        readouts = data['readout']
-        for r in readouts:
-            nn_name_called.append(r['nn_name'])
+        readout_operations = data['readout']
+        for op in readout_operations:
+            if op['type'] == 'predict':
+                nn_name_called.append(op['nn_name'])
 
 
         #now check the entities
@@ -235,11 +236,11 @@ class Model_information:
 
 
 
-    def __obtain_feed_forward_mapping(self, models):
+    def __obtain_neural_networks_mapping(self, models):
         result = {}
 
         for m in models:
-            result[m['nn_name']] = m['nn_architecture']
+            result[m['nn_name']] = m
 
         return result
 
@@ -265,15 +266,24 @@ class Model_information:
         if 'message' in m:
             for op in m['message']:
                 if op['type'] == 'neural_network':
-                    architecture = copy.deepcopy(self.nn_architectures[op['nn_name']])
+                    info = copy.deepcopy(self.nn_architectures[op['nn_name']])
                     del op['nn_name']
-                    op['architecture'] = architecture
+                    op['architecture'] = info['nn_architecture']
 
         #add the update nn architecture
-        if 'update' in m and m['update']['type'] == 'neural_network':
-            architecture = copy.deepcopy(self.nn_architectures[m['update']['nn_name']])
-            del m['update']['nn_name']
-            m['update']['architecture'] = architecture
+        if 'update' in m:
+            if m['update']['type'] == 'neural_network':
+                info = copy.deepcopy(self.nn_architectures[m['update']['nn_name']])
+                del m['update']['nn_name']
+                m['update']['architecture'] = info['nn_architecture']
+
+            if m['update']['type'] == 'recurrent_neural_network':
+                architecture = copy.deepcopy((self.nn_architectures[m['update']['nn_name']]))
+                del m['update']['nn_name']
+
+                for k,v in architecture.items():
+                    if k != 'nn_name' and k!= 'nn_type':
+                        m['update'][k] = v
 
         return m
 
@@ -310,7 +320,7 @@ class Model_information:
                 step_name = mp_info['step']
                 if step_name not in dict:
                     dict[step_name] = []
-                c = Combined_mp(mp_info)
+                c = Combined_mp(self.__add_nn_architecture(mp_info))
                 dict[step_name].append(c)
             return dict
         else:
@@ -319,9 +329,9 @@ class Model_information:
 
     def __add_readout_architecture(self, output):
         name = output['nn_name']
-        architecture = copy.deepcopy(self.nn_architectures[name])
+        info = copy.deepcopy(self.nn_architectures[name])
         del output['nn_name']
-        output['architecture'] = architecture
+        output['architecture'] = info['nn_architecture']
 
         return output
 

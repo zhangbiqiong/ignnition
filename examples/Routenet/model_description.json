@@ -48,7 +48,7 @@
                             "update": 
                             {
                                 "type": "recurrent_neural_network",
-                                "recurrent_type": "GRU"
+                                "nn_name": "recurrent1"
                             }
                             
                         }
@@ -72,7 +72,7 @@
                             "update": 
                             {
                                 "type": "recurrent_neural_network",
-                                "recurrent_type": "GRU"
+                                "nn_name": "recurrent1"
                             }
                         }]
                 }
@@ -121,6 +121,11 @@
                     "activation": "None"
                 }
             ]
+        },
+        {
+            "nn_name":"recurrent1",
+            "nn_type": "recurrent_neural_network",
+            "recurrent_type": "GRU"
         }
     ],
         

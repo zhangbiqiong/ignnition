@@ -159,12 +159,6 @@
                                                     "type": "string",
                                                     "enum": ["neural_network", "recurrent_neural_network"]
                                                 },
-                                                "recurrent_type":
-                                                {
-                                                    "description": "Define the type of recurrent cell for the RNN",
-                                                    "type": "string",
-                                                    "enum": ["GRU", "LSTM"]
-                                                },
                                                 "nn_name":
                                                 {
                                                     "description": "Reference the neural network to be used",
@@ -186,7 +180,7 @@
                                                         "properties": { "type": { "const": "recurrent_neural_network" } }
                                                     },
                                                     "then": {
-                                                        "required": ["recurrent_type"]
+                                                        "required": ["nn_name"]
                                                     }
                                                 }
                                             ]
@@ -248,30 +242,13 @@
                                         "type": "string",
                                         "enum": ["neural_network", "recurrent_neural_network"]
                                     },
-                                    "recurrent_type": 
-                                    {
-                                        "description": "Type of RNN to be used",
-                                        "type":"string",
-                                        "enum": ["GRU", "LSTM"]
-                                    },
                                     "nn_name":
                                     {
                                         "description": "Reference the neural network to be used",
                                         "type": "string"
                                     }
                                 },
-                                "if":
-                                {
-                                    "properties": {"type":{"const": "type"}}
-                                },
-                                "then":
-                                {
-                                    "required": ["recurrent_type"]
-                                },
-                                "else":
-                                {
-                                    "required": ["nn_name"]
-                                }
+                                "required": ["nn_name"]   
                             }
                         },
                         "if": {
@@ -372,7 +349,7 @@
                     {
                         "description": "Define the type of neural network",
                         "type": "string",
-                        "enum": ["feed_forward", "recurrent"]
+                        "enum": ["feed_forward", "recurrent_neural_network"]
                     },
                     "recurrent_type":
                     {

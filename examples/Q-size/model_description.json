@@ -1,9 +1,11 @@
 {   
-    "entities": [
+    "entities": 
+    [
         {
             "name": "link",
             "hidden_state_dimension": 32,
-            "features":[
+            "features":
+            [
                 {
                     "name": "link_capacity",
                     "normalization": "normalization_queue_size"
@@ -33,7 +35,7 @@
         }
     ],
 
-    "mp_phase":
+    "message_passing":
         {
             "num_iterations": 8,
 
@@ -51,7 +53,7 @@
                             "message": 
                             [
                                 {
-                                    "type": "None"
+                                    "type": "direct_assignation"
                                 }
                             ],
                             "aggregation": "combination"
@@ -64,7 +66,7 @@
                             "message": 
                             [
                                 {
-                                    "type": "None"
+                                    "type": "direct_assignation"
                                 }
                             ],
                             "aggregation": "combination"
@@ -83,14 +85,14 @@
                             "message": 
                             [
                                 {
-                                    "type": "None"
+                                    "type": "direct_assignation"
                                 }
                             ],
                             "aggregation": "sum",
                             "update": 
                             {
-                                "type": "apply_rnn",
-                                "recurrent_type": "GRU"
+                                "type": "recurrent_neural_network",
+                                "nn_name": "recurrent1"
                             }
                             
                         },
@@ -102,14 +104,14 @@
                             "message": 
                             [
                                 {
-                                    "type": "None"
+                                    "type": "direct_assignation"
                                 }
                             ],
                             "aggregation": "sum",
                             "update": 
                             {
-                                "type": "apply_rnn",
-                                "recurrent_type": "GRU"
+                                "type": "recurrent_neural_network",
+                                "nn_name": "recurrent1"
                             }
                             
                         }
@@ -123,32 +125,33 @@
                     "destination_entity": "path",
                     "message_combination":"interleave",
                     "combination_definition": "path_interleave",
-                    "update":
+                    "update": 
                     {
-                        "type": "apply_rnn",
-                        "recurrent_type": "GRU"
+                        "type": "recurrent_neural_network",
+                        "nn_name": "recurrent1"
                     }
                 }
             ]
         },
 
 
-    "output": 
-        [
-            {
-                "type_of_prediction": "node_prediction",
-                "entity": "path",
-                "output_label": "delay",
-                "output_normalization": "normalization_queue_size",
-                "nn_name": "readout_model"
-            }
-        ],
-        
-    "feed_forward_models":
+    "readout": 
     [
         {
-            "model_name": "readout_model",
-            "model_architecture":
+            "type": "predict",
+            "input": "path",
+            "label": "delay",
+            "label_normalization": "normalization_queue_size",
+            "nn_name": "readout_model"
+        }
+    ],
+        
+    "neural_networks":
+    [
+        {
+            "nn_name": "readout_model",
+            "nn_type": "feed_forward",
+            "nn_architecture":
             [
                 {
                     "name": "First_dense_layer",
@@ -161,7 +164,7 @@
                     "type_layer":"Dense",
                     "units": 256,
                     "activation": "selu"
-                }
+                },
                 {
                     "name": "Output_layer",
                     "type_layer":"Dense",
@@ -169,6 +172,11 @@
                     "activation": "None"
                 }
             ]
+        },
+        {
+            "nn_name":"recurrent1",
+            "nn_type": "recurrent_neural_network",
+            "recurrent_type": "GRU"
         }
     ],
 

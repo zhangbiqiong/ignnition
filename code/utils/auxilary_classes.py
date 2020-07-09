@@ -168,8 +168,8 @@ class Combined_mp:
 
         self.destination_entity = dict['destination_entity']
         self.message_combination = dict['message_combination']
-        if 'combination_definition' in dict:
-            self.combination_definition = dict['combination_definition']
+        if 'interleave_definition' in dict:
+            self.combination_definition = dict['interleave_definition']
         else:
             self.combination_definition = None
 

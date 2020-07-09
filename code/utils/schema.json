@@ -228,7 +228,7 @@
                                 "type": "string",
                                 "enum": ["concatenation", "interleave"]
                             },
-                            "combination_definition": {
+                            "interleave_definition": {
                                 "description": "Descrives how the interleaving is done",
                                 "type": "string"
                             },
@@ -253,7 +253,7 @@
                         },
                         "if": {
                             "properties": { "message_combination": { "const": "interleave" } },
-                            "required": ["combination_definition"]
+                            "required": ["interleave_definition"]
                         },
                         "required": ["step", "destination_entity", "message_combination", "update"]
                     }

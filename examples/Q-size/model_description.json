@@ -123,7 +123,7 @@
                     "step": "step1",
                     "destination_entity": "path",
                     "message_combination":"interleave",
-                    "combination_definition": "path_interleave",
+                    "interleave_definition": "path_interleave",
                     "update": 
                     {
                         "type": "recurrent_neural_network",

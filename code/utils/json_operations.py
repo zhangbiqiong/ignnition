@@ -165,7 +165,7 @@ class Model_information:
         for e in data['entities']:
             for f in e['features']:
                 name = f['name']
-                e['size'] = dimensions[name]    #add the dimension of the feature
+                f['size'] = dimensions[name]    #add the dimension of the feature
 
         for s in data['message_passing']['architecture']:
             aux = s['mp_step']

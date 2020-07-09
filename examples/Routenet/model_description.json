@@ -38,13 +38,13 @@
                             "source_entity": "link",
                             "destination_entity":"path",
                             "adj_vector": "adj_links_paths",
-                            "aggregation": "ordered",
                             "message":
                             [
                                 {
                                     "type": "direct_assignation"
                                 }
                             ],
+                            "aggregation": "ordered",
                             "update": 
                             {
                                 "type": "recurrent_neural_network",

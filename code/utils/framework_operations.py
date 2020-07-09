@@ -52,7 +52,7 @@ def find_dataset_dimensions(path):
     try:
         tar = tarfile.open(sample, 'r:gz')  # read the tar files
     except:
-        tf.compat.v1.logging.error('IGNNITION: The file data.json was not found in ', sample)
+        tf.compat.v1.logging.error('IGNNITION: The file data.json was not found in ' + sample)
         sys.exit(1)
 
     try:
@@ -62,7 +62,7 @@ def find_dataset_dimensions(path):
         dimensions = {}
         for k, v in sample_data.items():
             if not isinstance(v,dict):  #if it's a feature
-                if isinstance(v[0], list):
+                if isinstance(v,list) and isinstance(v[0], list):
                     dimensions[k] = len(v[0])
                 else:
                     dimensions[k] = 1
@@ -77,7 +77,7 @@ def find_dataset_dimensions(path):
         return dimensions
 
     except:
-        tf.compat.v1.logging.error('IGNNITION: Failed to read the data file ', sample)
+        tf.compat.v1.logging.error('IGNNITION: Failed to read the data file ' + sample)
         sys.exit(1)
 
 

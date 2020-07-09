@@ -52,7 +52,7 @@ python3 migrate.py --dataset <dataset_path> --output_path <output_path>
 In the directory, the main.py file is also provided. It is IMPORTANT to note that the content of this file should be copied to the actual main.py of the framework, which can be found in ['code' directory](code).
 
 #### Set the paths
-At this point, the user must indicate the framework the paths for all these previously mentioned files. For this, modify the train_options.ini file in ['code' directory](code) with the paths of the specific example.
+At this point, the user must indicate the framework the paths for all these previously mentioned files. For this, modify the train_options.ini file in ['code' directory](code) with the paths of the specific example (training dataset, evaluation dataset, model_description file,...) as well as several custom options regarding the evaluation of the model and how the model should be saved.
 
 #### Execute the framework
 Finally, execute the framework by placing the scope in the ['code' directory](code) and executing the following command line
@@ -68,10 +68,10 @@ With this, a debug_model directory should be generated as well as the trained mo
 Design and train your own GNN model in three simple steps:
 
 ### Step 1: Design the GNN model's architecture
-The first step is to define the model's architecture. This is done by creating a model_description.json file where the several sections of the model's design should be specified. The two examples provided contain its corresponding file, which should be a good starting point as most likely only a few modifications of the files are required.
+The first step is to define the model's architecture. This is done by creating a model_description.json file where the several sections of the model's design should be specified. The two examples provided contain its corresponding file, which should be a good starting point as most likely only a few modifications of the files are required. Furthermore, an additional file "keywords_cheat_sheet.pdf" is provided. This file contains the description of all the possible keywords, as well as some useful information to guide the user to efficiently create a new model. The user must define all the fields marked with (*) in the table, and follow the constraints defined within this document, specifing what the required fields are, and how they should be filled. .
 
 ###  Step 2: Migrate your dataset
-The second step is to migrate the original datset that is intended to be used to JSON format, containing the key words used in the model description file. Again, the migration.py files corresponding to both the use-cases we provide should be good starting point, as to fully understand the final structure that any dataset should have to be a valid input to IGNNITION.
+The second step is to migrate the original datset that is intended to be used to JSON format, containing the key words used in the model description file. In escence, a valid dataset contains (at least one) compressed file (format .tar.gz) with a data.json file within with the data samples. Again, the migration.py files corresponding to the use-case of routenet should be good starting point, as to fully understand the final structure that any dataset should have to be a valid input to IGNNITION.
 
 ###  Step 3: Execute the model training/evaluation
 Once these has been done, we must fill appropriately the main.py file. In this file we must create the model and indicate the functionality that we want to use, which can be:

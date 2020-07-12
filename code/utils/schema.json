@@ -179,7 +179,7 @@
                                                     "if": {
                                                         "properties": { "type": { "const": "recurrent_neural_network" } }
                                                     },
-                                                    "then": {
+                                                        "then": {
                                                         "required": ["nn_name"]
                                                     }
                                                 }
@@ -188,8 +188,7 @@
                                         
                                     },
                                     "if": {
-                                        "properties": { "type": { "const": "multi_source" } },
-                                        "required": ["type"]
+                                        "properties": { "type": { "const": "multi_source" } }
                                     },
                                     "then": {
                                         "properties": { "aggregation": {"const": "combination"}}
@@ -226,7 +225,12 @@
                             "message_combination": {
                                 "description": "Describes how the messages received are combined.",
                                 "type": "string",
-                                "enum": ["concatenation", "interleave"]
+                                "enum": ["concat", "interleave"]
+                            },
+                            "concat_axis": {
+                                "description": "Define how to concatenate the messages together",
+                                "type": "integer",
+                                "enum": [1, 2]
                             },
                             "interleave_definition": {
                                 "description": "Descrives how the interleaving is done",
@@ -252,8 +256,11 @@
                             }
                         },
                         "if": {
-                            "properties": { "message_combination": { "const": "interleave" } },
-                            "required": ["interleave_definition"]
+                            "properties": { "message_combination": { "const": "interleave" } }
+                        },
+                        "then":
+                        {
+                            "required": ["interleave_definition"] 
                         },
                         "required": ["step", "destination_entity", "message_combination", "update"]
                     }

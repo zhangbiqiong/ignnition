@@ -119,9 +119,11 @@ class Operation:
         self.type = type    #type of operation
 
 class Apply_nn(Operation):
-    def __init__(self, op, counter):
+    def __init__(self, op, counter=0):
         super(Apply_nn, self).__init__(type="feed_forward_nn")
-        self.input = op['input']
+
+        if 'input' in op:
+            self.input = op['input']
 
         if 'output_name' in op:
             self.output_name = op['output_name']
@@ -168,6 +170,9 @@ class Combined_mp:
 
         self.destination_entity = dict['destination_entity']
         self.message_combination = dict['message_combination']
+        self.concat_axis = 1
+
+        #define the interleave definition
         if 'interleave_definition' in dict:
             self.combination_definition = dict['interleave_definition']
         else:
@@ -175,12 +180,16 @@ class Combined_mp:
 
         params = dict['update']
 
+        #define the update type
         if params['type'] == 'recurrent_neural_network':
             self.update = Apply_rnn(params)
 
         elif params['type'] == 'neural_network':
             self.update = Apply_nn(params)
 
+        #define how to concatenate the axis
+        if 'concat_axis' in dict:
+            self.concat_axis = int(dict['concat_axis'])
 
 class Message_Passing:
     """
@@ -267,7 +276,7 @@ class Message_Passing:
 
     def create_update(self, u):
         if u["type"] == 'neural_network':
-            return Apply_nn({'input': ['destination', 'aggregated'], 'architecture': u['architecture']})
+            return Apply_nn({'architecture': u['architecture']})
 
         if u['type'] == 'recurrent_neural_network':
             return Apply_rnn(u)

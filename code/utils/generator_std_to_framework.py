@@ -89,7 +89,7 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
                 file_samples = tar.extractfile('data.json')
 
             except:
-                tf.compat.v1.logging.error('IGNNITION: The file data.txt was not found in ', sample_file )
+                tf.compat.v1.logging.error('IGNNITION: The file data.json was not found in ', sample_file )
                 sys.exit(1)
 
 
@@ -200,7 +200,7 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
                     for entity in interleave_definition:
                         total_size += 1
                         if entity not in involved_entities:
-                            involved_entities[entity] = counter #each entity a different value
+                            involved_entities[entity] = counter #each entity a different value (identifier)
 
                             seq = dict['seq_' + entity + '_' + dst_entity]
                             n_total += max(seq) + 1 #superior limit of the size of any destination

@@ -277,6 +277,7 @@ class Model_information:
                 del m['update']['nn_name']
                 m['update']['architecture'] = info['nn_architecture']
 
+
             if m['update']['type'] == 'recurrent_neural_network':
                 architecture = copy.deepcopy((self.nn_architectures[m['update']['nn_name']]))
                 del m['update']['nn_name']
@@ -402,11 +403,18 @@ class Model_information:
 
         return sources
 
-    def get_combined_sources(self):
+    def get_interleave_sources(self):
         result = []
+
+        interleave_steps = []
+        for k,v in self.combined_mp_options.items():
+            for c in v:
+                if c.message_combination == 'interleave':
+                    interleave_steps.append([k, c.destination_entity])
+
         for step in self.mp_instances:
             for m in step[1]:
-                if m.type == "multi_source" and m.aggregation == 'combination':
+                if m.type == "multi_source" and m.aggregation == 'combination' and [step[0], m.destination_entity] in interleave_steps:
                     result.append([m.source_entity,m.destination_entity])
         return result
 
@@ -416,8 +424,9 @@ class Model_information:
 
     def get_interleave_tensors(self):
         if self.combined_mp_options != {}:
-            combination_blocks = list(self.combined_mp_options.values())[0]
-            result = [[combined_message.combination_definition, combined_message.destination_entity] for combined_message in combination_blocks if combined_message.message_combination == 'interleave' ]
+            combination_blocks = list(self.combined_mp_options.values())
+            combination_blocks = [s for sublist in combination_blocks for s in sublist]
+            result  = [[combined_message.combination_definition, combined_message.destination_entity] for combined_message in combination_blocks if combined_message.message_combination == 'interleave' ]
             return result
         else:
             return []

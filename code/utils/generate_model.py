@@ -85,7 +85,7 @@ def normalization(x, feature_list, output_names, output_normalizations,y=None):
 
     return x
 
-def tfrecord_input_fn(data_dir, shuffle=False, training = True):
+def input_fn(data_dir, shuffle=False, training = True):
     """
     Parameters
     ----------
@@ -108,10 +108,18 @@ def tfrecord_input_fn(data_dir, shuffle=False, training = True):
         interleave_list = model_info.get_interleave_tensors()
         interleave_sources = model_info.get_interleave_sources()
         output_names, output_normalizations,_ = model_info.get_output_info()
+        additional_input = model_info.obtain_additional_input_names()
+        unique_additional_input = [a for a in additional_input if a not in feature_list]
 
         types = {}
         shapes = {}
         feature_names = []
+
+        for a in unique_additional_input:
+            types[a] = tf.int64
+            shapes[a] = tf.TensorShape(None)
+
+
         for f in feature_list:
             f_name = f.name
             feature_names.append(f_name)
@@ -147,13 +155,13 @@ def tfrecord_input_fn(data_dir, shuffle=False, training = True):
             ds = tf.data.Dataset.from_generator(generator,
                                                 (types, tf.float32),
                                                 (shapes, tf.TensorShape(None)),
-                                                args=(data_dir, feature_names, output_names, adjecency_info,interleave_list, training, shuffle))
+                                                args=(data_dir, feature_names, output_names, adjecency_info,interleave_list, unique_additional_input, training, shuffle))
 
         else:
             ds = tf.data.Dataset.from_generator(generator,
                                                 (types),
                                                 (shapes),
-                                                args=(data_dir, feature_names, output_names, adjecency_info, interleave_list,training, shuffle))
+                                                args=(data_dir, feature_names, output_names, adjecency_info, interleave_list, unique_additional_input, training, shuffle))
 
         #ds = ds.batch(2)
 
@@ -198,7 +206,7 @@ class ComnetModel(tf.keras.Model):
     def __init__(self):
 
         super(ComnetModel, self).__init__()
-        self.entities_dimensions = model_info.get_entities_dimensions()
+        self.input_dimensions = model_info.get_input_dimensions()
         self.instances_per_step = model_info.get_mp_instances()
 
         with tf.name_scope('model_initializations') as _:
@@ -216,23 +224,21 @@ class ComnetModel(tf.keras.Model):
                                 var_name = src_entity + "_to_" + dst_entity + '_message_creation_' + str(counter)
                                 #find out what the input dimension is (need to keep track of previous ones)
 
-                                #input_dimension = int(self.entities_dimensions[src_entity] + self.entities_dimensions[dst_entity] + message.message_formation.num_extra_parameters)
+                                #input_dimension = int(self.input_dimensions[src_entity] + self.input_dimensions[dst_entity] + message.message_formation.num_extra_parameters)
 
                                 #Find out the dimension of the model
                                 input_nn = operation.input
                                 input_dimension = 0
                                 for i in input_nn:
                                     if i == 'hs_source':
-                                        input_dimension += int(self.entities_dimensions[src_entity])
+                                        input_dimension += int(self.input_dimensions[src_entity])
                                     elif i == 'hs_dest':
-                                        input_dimension += int(self.entities_dimensions[dst_entity])
+                                        input_dimension += int(self.input_dimensions[dst_entity])
                                     elif i == 'edge_params':
                                         input_dimension += int(message.extra_parameters)
                                     else:
                                         dimension = getattr(self, i + '_dim')
                                         input_dimension += dimension
-
-
 
 
                                 setattr(self, str(var_name) + "_layer_" + str(0), tf.keras.Input(shape=(input_dimension,)))
@@ -282,7 +288,7 @@ class ComnetModel(tf.keras.Model):
                                 dst_entity = message.destination_entity
                                 recurrent_cell = update_model.model
                                 try:
-                                    recurrent_instance = recurrent_cell.get_tensorflow_object(self.entities_dimensions[dst_entity])
+                                    recurrent_instance = recurrent_cell.get_tensorflow_object(self.input_dimensions[dst_entity])
                                     setattr(self, str(dst_entity)+'_update', recurrent_instance)
                                 except:
                                     tf.compat.v1.logging.error(
@@ -301,7 +307,7 @@ class ComnetModel(tf.keras.Model):
                                 with tf.name_scope(dst_entity + '_ff_update') as _:
 
                                     #input is the aggregated hs of the sources concat with the current dest. hs
-                                    input_dimension = int(self.entities_dimensions[src_entity]) + int(self.entities_dimensions[dst_entity])
+                                    input_dimension = int(self.input_dimensions[src_entity]) + int(self.input_dimensions[dst_entity])
 
                                     setattr(self, str(var_name) + "_layer_" + str(0), tf.keras.Input(shape=(input_dimension,)))
 
@@ -314,7 +320,7 @@ class ComnetModel(tf.keras.Model):
                                         try:
                                             #if it's the last layer, set the output units to 1
                                             if j == n_layers -1:
-                                                layer = l.get_tensorflow_object_last(l_previous, int(self.entities_dimensions[dst_entity]))
+                                                layer = l.get_tensorflow_object_last(l_previous, int(self.input_dimensions[dst_entity]))
                                             else:
                                                 layer = l.get_tensorflow_object(l_previous)
 
@@ -347,7 +353,7 @@ class ComnetModel(tf.keras.Model):
                         try:
                             #obtain the recurrent_models
                             recurrent_cell = model_op.model
-                            recurrent_instance = recurrent_cell.get_tensorflow_object(self.entities_dimensions[dst_entity])
+                            recurrent_instance = recurrent_cell.get_tensorflow_object(self.input_dimensions[dst_entity])
                             setattr(self, str(dst_entity) + '_combined_update', recurrent_instance)
 
                         except:
@@ -364,11 +370,11 @@ class ComnetModel(tf.keras.Model):
                             if mp.message_combination == 'concat' and mp.concat_axis ==2:   #if we are concatenating by message
                                 message_dimensionality = 0
                                 for s in sources:
-                                    message_dimensionality += int(self.entities_dimensions[s])
+                                    message_dimensionality += int(self.input_dimensions[s])
 
 
                             else:   #all the messages are the same size. So take the first for instance
-                                message_dimensionality = int(self.entities_dimensions[sources[0]])
+                                message_dimensionality = int(self.input_dimensions[sources[0]])
 
 
                             var_name = dst_entity + "_ff_combined_update"
@@ -377,7 +383,7 @@ class ComnetModel(tf.keras.Model):
 
                                 # input is the aggregated hs of the sources concat with the current dest. hs
                                 input_dimension = message_dimensionality + int(
-                                    self.entities_dimensions[dst_entity])
+                                    self.input_dimensions[dst_entity])
 
                                 setattr(self, str(var_name) + "_layer_" + str(0),
                                         tf.keras.Input(shape=(input_dimension,)))
@@ -391,7 +397,7 @@ class ComnetModel(tf.keras.Model):
                                         # if it's the last layer, set the output units to 1
                                         if j == n_layers - 1:
                                             layer = l.get_tensorflow_object_last(l_previous, int(
-                                                self.entities_dimensions[dst_entity]))
+                                                self.input_dimensions[dst_entity]))
                                         else:
                                             layer = l.get_tensorflow_object(l_previous)
 
@@ -421,21 +427,25 @@ class ComnetModel(tf.keras.Model):
 
             #Create the several readout models
             readout_operations = model_info.get_readout_operations()
+            counter = 0
             for operation in readout_operations:
-                if operation.type == "predict":
+                if operation.type == "predict" or operation.type == 'neural_network':
                     with tf.name_scope("readout_architecture"):
-                        # right now this doesnt change because the pooling will reduce the amount of samples but not the dimensionality of a sample itself.
 
-                        input_dimension = int(self.entities_dimensions[operation.input])
-                        setattr(self, str(operation.input)+"_layer_"+str(0), tf.keras.Input(shape = (input_dimension,)))
+                        #input_dimension = int(self.input_dimensions[operation.input[0]])
+                        input_dimension = 0
+                        for i in operation.input:
+                            input_dimension += int(self.input_dimensions[i])
+
+                        setattr(self, 'readout_model' + str(counter)+"_layer_"+str(0), tf.keras.Input(shape = (input_dimension,)))
 
                         layer_counter = 1
                         layers = operation.architecture.layers
                         for l in layers:
-                            l_previous = getattr(self, str(operation.input)+"_layer_"+str(layer_counter -1))
+                            l_previous = getattr(self, 'readout_model' + str(counter)+"_layer_"+str(layer_counter - 1))
                             try:
                                 layer = l.get_tensorflow_object(l_previous)
-                                setattr(self, str(operation.input)+"_layer_"+str(layer_counter), layer)
+                                setattr(self, 'readout_model' + str(counter)+"_layer_"+str(layer_counter), layer)
                             except:
                                 tf.compat.v1.logging.error(
                                     'IGNNITION: The layer ' + str(layer_counter) + ' of the readout is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
@@ -444,12 +454,36 @@ class ComnetModel(tf.keras.Model):
                             layer_counter += 1
 
                         #Create the actual model with all the previous layers.
-                        setattr(self, 'output_' +str(operation.input),
-                             tf.keras.Model(inputs=getattr(self,str(operation.input)+"_layer_"+str(0)), outputs=getattr(self, str(operation.input)+"_layer_"+str(layer_counter -1)), name = operation.label + '_predictor' ))
+                        model = tf.keras.Model(inputs=getattr(self,'readout_model' + str(counter)+"_layer_"+str(0)), outputs=getattr(self, 'readout_model' + str(counter)+"_layer_"+str(layer_counter -1)))
+                        setattr(self, 'readout_model_' +str(counter),model)
 
-                if operation.type == 'pooling':
-                    dimensionality = self.entities_dimensions[operation.input]
-                    self.entities_dimensions[operation.output_name] = dimensionality
+
+                    #save the dimensions of the output
+                    if operation.type == 'neural_network':
+                        self.input_dimensions[operation.output_name] = model.layers[-1].output.shape[1]
+
+
+                elif operation.type == 'pooling':
+                    if operation.type_pooling == 'sum' or operation.type_pooling=='max' or operation.type_pooling=='mean':
+                        dimensionality = self.input_dimensions[operation.input[0]]
+
+                    else:
+                        dimensionality = 1
+
+                    self.input_dimensions[operation.output_name] = dimensionality   #add the new dimensionality to the input_dimensions tensor
+
+
+                elif operation.type == 'product':
+                    self.input_dimensions[operation.output_name] = self.input_dimensions[operation.input[0]]
+
+                elif operation.type == 'extend_adjacencies':
+                    self.input_dimensions[operation.output_name[0]] = self.input_dimensions[operation.input[0]]
+                    self.input_dimensions[operation.output_name[1]] = self.input_dimensions[operation.input[1]]
+
+
+
+                counter += 1
+
 
     def call(self, input, training=False):
         """
@@ -458,6 +492,9 @@ class ComnetModel(tf.keras.Model):
         input:    dict
             Dictionary with all the tensors with the input information of the model
         """
+
+        # -----------------------------------------------------------------------------------
+        # HIDDEN STATE CREATION
         entities = model_info.entities
 
         #Initialize all the hidden states for all the nodes.
@@ -493,8 +530,8 @@ class ComnetModel(tf.keras.Model):
                         state = tf.concat([state,tf.zeros(shape)], axis=1, name="add_zeros_"+name)
                         setattr(self, str(name)+"_state", state)
 
-
-        #proceed with the message passing phase
+        # -----------------------------------------------------------------------------------
+        # MESSAGE PASSING PHASE
         with tf.name_scope('message_passing') as _:
 
             for j in range(model_info.get_mp_iterations()):
@@ -604,7 +641,7 @@ class ComnetModel(tf.keras.Model):
 
                                              max_len = tf.reduce_max(seq) + 1
 
-                                             shape = tf.stack([num_dst, max_len, int(self.entities_dimensions[src_name])])  # shape(n_paths, max_len_path, dimension_link)
+                                             shape = tf.stack([num_dst, max_len, int(self.input_dimensions[src_name])])  # shape(n_paths, max_len_path, dimension_link)
 
                                              lens = tf.math.unsorted_segment_sum(tf.ones_like(destinations),
                                                                                  destinations,
@@ -617,12 +654,12 @@ class ComnetModel(tf.keras.Model):
                                          with tf.name_scope("attention_mechanism_" + src_name) as _:
                                              #obtain the source states  (NxF1)
                                              h_src = tf.identity(messages)
-                                             F1 = int(self.entities_dimensions[message.source_entity])
+                                             F1 = int(self.input_dimensions[message.source_entity])
 
                                              #obtain the destination states  (NxF2)
                                              states_dest = getattr(self, str(dst_name) + '_state')
                                              h_dst = tf.gather(states_dest, destinations)
-                                             F2 = int(self.entities_dimensions[message.destination_entity])
+                                             F2 = int(self.input_dimensions[message.destination_entity])
 
                                              #new number of features
                                              F_ = F1
@@ -736,7 +773,7 @@ class ComnetModel(tf.keras.Model):
 
                                              max_len = tf.reduce_max(seq) + 1
 
-                                             shape = tf.stack([num_dst, max_len, int(self.entities_dimensions[src_name])])
+                                             shape = tf.stack([num_dst, max_len, int(self.input_dimensions[src_name])])
 
                                              source_input = tf.scatter_nd(ids, messages, shape) #find the input ordering it by sequence
 
@@ -847,35 +884,146 @@ class ComnetModel(tf.keras.Model):
                                                      'IGNNITION:  This functionality is not yet fully supported')
                                                  sys.exit(1)
 
-        #perform the predictions
+
+        # -----------------------------------------------------------------------------------
+        #READOUT PHASE
         with tf.name_scope('readout_predictions') as _:
             readout_opeartions = model_info.get_readout_operations()
 
+            counter = 0
             for operation in readout_opeartions:
                 if operation.type == "predict":
-                    model = getattr(self, 'output_' +str(operation.input))
+                    model = getattr(self, 'readout_model_' +str(counter))
 
-                    prediction_input = getattr(self, operation.input + '_state')
+                    try:
+                        # if we are reusing information
+                        prediction_input = getattr(self, operation.input[0] + '_state')
+                    except:
+                        # if it is some additional information of the dataset
+                        prediction_input = input[operation.input[0]]
 
                     r = model(prediction_input)    #predicting should only be done once.
+
+                    if operation.output_name is not None:
+                        setattr(self, operation.output_name + '_state', r)
                     return r
 
-                if operation.type == "pooling":
-                    pooling_input = getattr(self, operation.input + '_state')
 
+                if operation.type == "pooling":
+                    #obtain the input of the pooling operation
+                    try:
+                        pooling_input = getattr(self, operation.input[0] + '_state')
+                    except:
+                        pooling_input = input[operation.input[0]]
+
+                    #here we do the pooling
                     if operation.type_pooling == 'sum':
-                        pooling_input = tf.reduce_sum(pooling_input, 0)
-                        pooling_input = tf.reshape(pooling_input, [-1] + [pooling_input.shape.as_list()[0]])
+
+                        pooling_output = tf.reduce_sum(pooling_input, 0)
+                        pooling_output = tf.reshape(pooling_output, [-1] + [pooling_output.shape.as_list()[0]])
 
                     elif operation.type_pooling == 'mean':
-                        pooling_input = tf.reduce_mean(pooling_input,0)
-                        pooling_input = tf.reshape(pooling_input, [-1] + [pooling_input.shape.as_list()[0]])
+                        pooling_output = tf.reduce_mean(pooling_input,0)
+                        pooling_output = tf.reshape(pooling_output, [-1] + [pooling_output.shape.as_list()[0]])
 
                     elif operation.type_pooling == 'max':
-                        pooling_input = tf.reduce_max(pooling_input,0)
-                        pooling_input = tf.reshape(pooling_input, [-1] + [pooling_input.shape.as_list()[0]])
+                        pooling_output = tf.reduce_max(pooling_input,0)
+                        pooling_output = tf.reshape(pooling_output, [-1] + [pooling_output.shape.as_list()[0]])
 
-                    setattr(self, operation.output_name + '_state', pooling_input)
+
+                elif operation.type == 'product':
+                    try:
+                        product_input1 = getattr(self, operation.input[0] + '_state')
+                    except:
+                        product_input1 = input[operation.input[0]]
+
+
+                    #obtain the second input
+                    try:
+                        product_input2 = getattr(self, operation.input[1] + '_state')
+                    except:
+                        product_input2 = input[operation.input[1]]
+
+                    try:
+                        if operation.type_product == 'dot_product':
+                            product_output = tf.tensordot(product_input1, product_input2, axes = 0)
+
+                        elif operation.type_product == 'element_wise':
+                            product_output = tf.matmul(product_input1, product_input2)
+
+                        setattr(self, operation.output_name + '_state', product_output)
+
+                    except:
+                        tf.compat.v1.logging.error('IGNNITION:  The product operation between ' + str(
+                            operation.input[0]) + ' and ' + operation.input[1] + ' failed. Check that the dimensions are compatible.')
+                        sys.exit(1)
+
+
+
+
+                elif operation.type == 'neural_network':
+                    var_name = 'readout_model_' +str(counter)
+                    readout_nn = getattr(self, var_name)
+
+                    first = True
+                    for i in operation.input:
+                        try:
+                            # if we are reusing information
+                            new_input = getattr(self, i + '_state')
+                        except:
+                            # if it is some additional information of the dataset (take it from the input information of the model)
+                            new_input = input[i]
+
+                        if first:
+                            resulting_input = new_input
+                            first = False
+                        else:
+                            resulting_input = tf.concat([resulting_input, new_input], axis=1)
+
+
+                    result = readout_nn(resulting_input)
+                    setattr(self, operation.output_name + '_state', result)
+
+
+                elif operation.type == 'extend_adjacencies':
+                    adj_list_src = input['src_' + operation.adj_list]
+                    adj_list_dst = input['dst_' + operation.adj_list]
+
+                    #get the source input
+                    try:
+                        source = getattr(self, operation.input[0] + '_state')
+                    except:
+                        source = input[operation.input[0]]
+
+                    #get the destination input
+                    try:
+                        dest = getattr(self, operation.input[1] + '_state')
+                    except:
+                        dest = input[operation.input[1]]
+
+
+                    #obtain the extended input (by extending it to the number of adjacencies between them)
+                    try:
+                        extended_src = tf.gather(source, adj_list_src)
+                    except:
+                        tf.compat.v1.logging.error('IGNNITION:  Extending the adjacency list ' + str(adj_list) + ' was not possible. Check that the indexes of the source of the adjacency list match the input given.')
+                        sys.exit(1)
+
+                    try:
+                        extended_dst = tf.gather(dest, adj_list_dst)
+                    except:
+                        tf.compat.v1.logging.error('IGNNITION:  Extending the adjacency list ' + str(adj_list) + ' was not possible. Check that the indexes of the destination of the adjacency list match the input given.')
+                        sys.exit(1)
+
+
+                    #save the source
+                    setattr(self, operation.output_name[0] + '_state', extended_src)
+
+                    #save the destination
+                    setattr(self, operation.output_name[1] + '_state', extended_dst)
+
+
+                counter += 1
 
 
 

@@ -137,8 +137,14 @@
     "readout": 
     [
         {
+            "type": "pooling",
+            "input": ["link_capacity"],
+            "type_pooling": "sum",
+            "output_name":"aux"
+        },
+        {
             "type": "predict",
-            "input": "path",
+            "input": ["path"],
             "label": "delay",
             "label_normalization": "normalization_queue_size",
             "nn_name": "readout_model"
@@ -156,18 +162,21 @@
                     "name": "First_dense_layer",
                     "type_layer":"Dense",
                     "units": 256,
+                    "kernel_regularizer": 0.1,
                     "activation": "selu"
                 },
                 {
                     "name": "Second_dense_layer",
                     "type_layer":"Dense",
                     "units": 256,
+                    "kernel_regularizer":0.1,
                     "activation": "selu"
                 },
                 {
                     "name": "Output_layer",
                     "type_layer":"Dense",
                     "units": 1,
+                    "kernel_regularizer":0.01,
                     "activation": "None"
                 }
             ]

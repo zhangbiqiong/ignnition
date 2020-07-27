@@ -143,7 +143,7 @@ class Model_information:
         self.combined_mp_options = self.__calculate_mp_combination_options(data)    #if there is any
         self.readout_operations = self.__obtain_readout_operations(data['readout'])
         self.training_options = self.__obtain_training_options(data)
-        self.entities_dimensions = self.__get_entities_dimensions()
+        self.input_dimensions = self.__get_input_dimensions(dimensions)
 
 
 
@@ -354,8 +354,41 @@ class Model_information:
                 r = Pooling_operation(op)
                 result.append(r)
 
+            elif op['type'] == 'product':
+                r = Product_operation(op)
+                result.append(r)
+
+            elif op['type'] == 'neural_network':
+                r = Readout_nn(self.__add_readout_architecture(op))
+                result.append(r)
+
+            elif op['type'] == 'extend_adjacencies':
+                r = Extend_adjacencies(op)
+                result.append(r)
+
         return result
 
+
+    def obtain_additional_input_names(self):
+        output_names = set()
+        input_names = set()
+
+        for r in self.readout_operations:
+            if r.type == 'extend_adjacencies':
+                output_names.update(r.output_name)
+
+            elif r.type != 'predict':
+                output_names.add(r.output_name)
+
+            for i in r.input:
+                input_names.add(i)
+
+
+        for e in self.entities:
+            output_names.add(e.name)
+
+        result = input_names.difference(output_names)
+        return list(result)
 
     def __obtain_training_options(self, data):
         """
@@ -376,16 +409,19 @@ class Model_information:
         return dict
 
 
-    def __get_entities_dimensions(self):
+    def __get_input_dimensions(self,dimensions):
         dict = {}
         for entity in self.entities:
             dict[entity.name] = entity.hidden_state_dimension
+
+        #add the size of additional inputs if needed
+        dict = {**dict, **dimensions}
         return dict
 
     # ----------------------------------------------------------------
     #PUBLIC FUNCTIONS GETTERS
-    def get_entities_dimensions(self):
-        return self.entities_dimensions
+    def get_input_dimensions(self):
+        return self.input_dimensions
 
     def get_entities(self):
         return self.entities
@@ -452,6 +488,8 @@ class Model_information:
         result_norm = [o.label_normalization for o in self.readout_operations if o.type == 'predict']
         result_denorm = [o.label_denormalization for o in self.readout_operations if o.type == 'predict']
         return result_names, result_norm, result_denorm
+
+
 
     def get_all_features(self):
         all_features = []

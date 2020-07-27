@@ -50,7 +50,7 @@ def make_indices(entities):
 
 
 
-def generator(dir, feature_names, output_names, adjecencies_names, interleave_names, training, shuffle=False):
+def generator(dir, feature_names, output_names, adjecencies_names, interleave_names, additional_input, training, shuffle=False):
     """
     Parameters
     ----------
@@ -76,7 +76,7 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
     output_names = [o.decode('ascii') for o in output_names]
     adjecencies_names = [[x[0].decode('ascii'),x[1].decode('ascii'),x[2].decode('ascii'), x[3].decode('ascii'), x[4].decode('ascii')] for x in adjecencies_names]
     interleave_names = [[i[0].decode('ascii'), i[1].decode('ascii')] for i in interleave_names]
-
+    additional_input = [x.decode('ascii') for x in additional_input]
     samples = glob.glob(str(dir)+'/*.tar.gz')
 
     if shuffle == True:
@@ -101,15 +101,23 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
                 #read the features
                 for f in feature_names:
                      if f not in sample:
-                         raise Exception('A list for feature named ' + str(f) + ' was not found although being expected.')
+                         raise Exception('A list for feature named "' + str(f) + '" was not found although being expected.')
                      else:
                          data[f] = sample[f]
+
+                #read additional input name
+                for a in additional_input:
+                    if a not in sample:
+                        raise Exception('The input name "' + str(a) + '" was not found although being expected.')
+                    else:
+                        data[a] = sample[a]
+
 
                 #read the output values if we are training
                 if training:
                     for name in output_names:
                         if name not in sample:
-                            raise Exception('A list for the output named ' + str(name) + ' was not found although being expected.')
+                            raise Exception('A list for the output named "' + str(name) + '" was not found although being expected.')
                         else:
                             value = sample[name]
                             if not isinstance(value, list):
@@ -127,7 +135,7 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
                       name, src_entity, dst_entity, ordered, uses_parameters = a
 
                       if name not in sample:
-                         raise Exception('A list for the adjecency vector named ' + name + ' was not found although being expected.')
+                         raise Exception('A list for the adjecency vector named "' + name + '" was not found although being expected.')
                       else:
                          adjecency_lists = sample[name]
 
@@ -140,8 +148,8 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
                          items = adjecency_lists.items()
                          for destination, sources in items:
                              if entities[destination] != dst_entity:
-                                 raise Exception('The adjecency list ' + name + ' was expected to be from ' + src_entity + ' to ' + dst_entity +
-                                                 ".\n However, " + destination + ' was found which is of type ' + entities[destination] + ' instead of ' + dst_entity)
+                                 raise Exception('The adjecency list "' + name + '" was expected to be from ' + src_entity + ' to ' + dst_entity +
+                                                 '.\n However, "' + destination + '" was found which is of type "' + entities[destination] + '" instead of ' + dst_entity)
 
                              if ordered == 'True':
                                  seq += range(0, len(sources))
@@ -162,8 +170,8 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
                              else:
                                  for s in sources:
                                      if entities[s] != src_entity:
-                                         raise Exception('The adjecency list ' + name + ' was expected to be from ' + src_entity + ' to ' + dst_entity +
-                                                         ".\n However, " + destination + ' was found which is of type ' + entities[destination] + ' instead of ' + src_entity)
+                                         raise Exception('The adjecency list "' + name + '" was expected to be from "' + src_entity + '" to "' + dst_entity +
+                                                         '.\n However, "' + destination + '" was found which is of type "' + entities[destination] + '" instead of "' + src_entity)
 
                                      sources_idx.append((indices[s]))
                                      dest_idx.append(indices[destination])
@@ -221,7 +229,10 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
                 else:
                     yield data,output
 
+
+        except KeyboardInterrupt:
+            sys.exit(1)
+
         except Exception as inf:
             tf.compat.v1.logging.error('IGNNITION: ' + str(inf))
-            #sys.exit(1)
 

@@ -84,7 +84,7 @@
     [
         {
             "type": "predict",
-            "input": "path",
+            "input": ["path"],
             "label": "delay",
             "label_normalization": "log",
             "nn_name": "readout_model"

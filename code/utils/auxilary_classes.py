@@ -129,7 +129,7 @@ class Apply_nn(Operation):
             self.output_name = op['output_name']
 
         else:
-            self.output_name = 'direct_assignation'
+            self.output_name = 'None'
 
         #we need somehow to find the number of extra_parameters beforehand
         self.model = Feed_forward_message_creation(op['architecture'],counter, 0)
@@ -144,6 +144,9 @@ class Apply_rnn(Operation):
         recurrent_type = op['recurrent_type']
         del op['recurrent_type']
         self.model = Recurrent_Cell(recurrent_type, op)
+
+
+
 
 
 class Combined_mp:
@@ -469,6 +472,7 @@ class Feed_forward_Layer:
         layer = c_(**self.parameters)(l_previous)
         return layer
 
+
     def get_tensorflow_object_last(self, l_previous, destination_units):
         """
         Parameters
@@ -579,11 +583,19 @@ class Feed_forward_message_creation(Feed_forward_model):
         self.num_extra_parameters = num_parameter
 
 
+
+
 class Readout_operation():
     def __init__(self, op):
         self.type = op['type']
         self.input = op['input']
+        self.output_name = None
 
+class Product_operation(Readout_operation):
+    def __init__(self, op):
+        super(Product_operation, self).__init__(op)
+        self.type_product = op['type_product']
+        self.output_name = op['output_name']
 
 
 class Predicting_operation(Readout_operation):
@@ -623,7 +635,6 @@ class Predicting_operation(Readout_operation):
             self.label_denormalization = operation['label_denormalization']
 
 
-
 class Pooling_operation(Readout_operation):
     """
     Attributes
@@ -652,3 +663,26 @@ class Pooling_operation(Readout_operation):
         self.type_pooling = operation['type_pooling']
         self.output_name = operation['output_name']
 
+
+class Readout_nn(Readout_operation):
+    def __init__(self, op):
+        super(Readout_nn, self).__init__(op)
+
+        if 'input' in op:
+            self.input = op['input']
+
+        if 'output_name' in op:
+            self.output_name = op['output_name']
+
+        else:
+            self.output_name = 'None'
+
+        #we need somehow to find the number of extra_parameters beforehand
+        self.architecture = Feed_forward_model({'architecture': op['architecture']}, model_role="readout")
+
+class Extend_adjacencies(Readout_operation):
+    def __init__(self, op):
+        super(Extend_adjacencies, self).__init__({'type':op['type'], 'input': op['input']})
+        self.adj_list = op['adj_list']
+
+        self.output_name = [op['output_name_src'], op['output_name_dst']]

@@ -282,18 +282,29 @@
                     {
                         "description": "Type of operation",
                         "type": "string",
-                        "enum" : ["predict", "pooling"]
+                        "enum" : ["predict", "pooling", "product", "neural_network", "extend_adjacencies"]
                     },
                     "type_pooling":
                     {
                         "description": "Type of operation to do pooling with",
                         "type": "string",
-                        "enum": ["sum", "max", "mean"]
+                        "enum": ["sum", "max", "mean","dot_product"]
+                    },
+                    "type_product":
+                    {
+                        "description": "Type of product to be applied",
+                        "type": "string",
+                        "enum": ["dot_product", "element_wise"]
                     },
                     "input": 
                     {
-                        "description": "Entity the hidden states of which we want to use for the prediction or name of a previous output name.",
-                        "type": "string"
+                        "description": "Array of input of the operation",
+                        "type": "array",
+                        "items":
+                        {
+                            "description": "Entity the hidden states of which we want to use for the prediction or name of a previous output name.",
+                            "type": "string"
+                        }
                     },
                     "label": 
                     {
@@ -319,21 +330,67 @@
                     {
                         "description": "Define an output name for the result, to reference it later",
                         "type": "string"
+                    },
+                    "output_name_src":
+                    {
+                        "description": "Define the output name of the extended source, to reference it later",
+                        "type": "string"
+                    },
+                    "output_name_dst":
+                    {
+                        "description": "Define the output name of the extended destiantion, to reference it later",
+                        "type": "string"
+                    },
+                    "adj_list":
+                    {
+                        "Description": "Define the adjacency list from the source to the destination values provided",
+                        "type": "string"
                     }
                 },
-                "if":
-                {
-                    "properties": { "type": { "const": "predict" } }
-                },
-                "then":
-                {
-                    "require": ["nn_name", "label"]
-                },
-                "else":
-                {
-                    "require": ["type_pooling", "output_name", "input"]
-                },
-                "required": ["type"]
+                "allOf": 
+                [
+                    {
+                        "if": {
+                            "properties": { "type": { "const": "predict" } }
+                        },
+                        "then": {
+                            "required": ["nn_name", "label"]
+                        }
+                    },
+                    {
+                        "if": {
+                            "properties": { "type": { "const": "pooling" } }
+                        },
+                        "then": {
+                            "required": ["type_pooling", "output_name"]
+                        }
+                    },
+                    {
+                        "if": {
+                            "properties": { "type": { "const": "product" } }
+                        },
+                        "then": {
+                            "required": ["type_product", "output_name"]
+                        }
+                    },
+                    {
+                        "if": {
+                            "properties": { "type": { "const": "neural_network" } }
+                        },
+                        "then": {
+                            "required": ["nn_name", "output_name"]
+                        }
+                    },
+                    {
+                        "if": {
+                            "properties": { "type": { "const": "extend_adjecencies" } }
+                        },
+                        "then": {
+                            "required": ["adj_list", "output_name_src", "output_name_dst"]
+                        }
+                    }
+                ],
+                "required": ["input"]
             }
         },
 

@@ -523,12 +523,15 @@ class ComnetModel(tf.keras.Model):
                             else:
                                 state = tf.concat([state,input[name_feature]], axis=1, name="add_"+name_feature)
 
-                    shape = tf.stack([input['num_' + name], dim - total], axis=0)  # shape (2,)
 
-                    #add 0s until reaching the given dimension
-                    with tf.name_scope('add_zeros_to_' + str(name)) as _:
-                        state = tf.concat([state,tf.zeros(shape)], axis=1, name="add_zeros_"+name)
-                        setattr(self, str(name)+"_state", state)
+                        shape = tf.stack([input['num_' + name], dim - total], axis=0)  # shape (2,)
+
+                        #add 0s until reaching the given dimension
+                        with tf.name_scope('add_zeros_to_' + str(name)) as _:
+                            state = tf.concat([state,tf.zeros(shape)], axis=1, name="add_zeros_"+name)
+                            setattr(self, str(name)+"_state", state)
+
+
 
         # -----------------------------------------------------------------------------------
         # MESSAGE PASSING PHASE
@@ -754,16 +757,16 @@ class ComnetModel(tf.keras.Model):
                                      #aggregation
 
                                      #sum aggreagtion
-                                     if message.aggregation == 'sum':  # <---- This is not callable yet
-                                         with tf.name_scope('combined_sum_preprocessing' + src_name) as _:
-                                             m = tf.math.unsorted_segment_sum(messages, destinations,num_dst)  # m is the aggregated values. Sum together the values belonging to the same path
-                                             #setattr(self, str(src_name) + '_sum_combined', m)
-                                             setattr(self, str(src_name) + '_to_' + str(dst_name) + '_combined', m)
-                                             setattr(self, 'lens_' + str(src_name), lens)
+                                     #if message.aggregation == 'sum':  # <---- This is not callable yet
+                                     #    with tf.name_scope('combined_sum_preprocessing' + src_name) as _:
+                                     #        m = tf.math.unsorted_segment_sum(messages, destinations,num_dst)  # m is the aggregated values. Sum together the values belonging to the same path
+                                     #        #setattr(self, str(src_name) + '_sum_combined', m)
+                                     #        setattr(self, str(src_name) + '_to_' + str(dst_name) + '_combined', m)
+                                     #        setattr(self, 'lens_' + str(src_name), lens)
 
 
                                      #combination aggreagation
-                                     elif message.aggregation == 'combination':
+                                     if message.aggregation == 'combination':
                                          with tf.name_scope('combination_preprocessing' + src_name) as _:
                                              seq = input['seq_' + src_name + '_' + dst_name]
 

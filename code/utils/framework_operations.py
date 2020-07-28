@@ -59,6 +59,7 @@ def find_dataset_dimensions(path):
         file_samples = tar.extractfile('data.json')
         sample_data = json.load(file_samples)[0]  # one single sample
         dimensions = {}
+
         for k, v in sample_data.items():
             if not isinstance(v,dict):  #if it's a feature
                 if isinstance(v,list) and isinstance(v[0], list):

@@ -421,6 +421,7 @@ class Recurrent_Cell:
         return layer
 
 
+
 class Feed_forward_Layer:
     """
     Attributes
@@ -679,6 +680,7 @@ class Readout_nn(Readout_operation):
 
         #we need somehow to find the number of extra_parameters beforehand
         self.architecture = Feed_forward_model({'architecture': op['architecture']}, model_role="readout")
+
 
 class Extend_adjacencies(Readout_operation):
     def __init__(self, op):

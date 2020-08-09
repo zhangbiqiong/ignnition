@@ -668,24 +668,25 @@ class DatanetAPI:
             from the dataset.
 
         """
-        
         g = None
         for root, dirs, files in os.walk(self.data_folder):
-            if (len(dirs)!=0):
-                continue
+            #if (len(dirs)!=0):
+            #    continue
 
             if ("graph_attr.txt" in files):
                 g = networkx.read_gml(os.path.join(root, "graph_attr.txt"), destringizer=int)
+
             else:
                 print('Unable to find the graph information file')
                 break
+
             self.__process_graph(g)
             tar_files = [f for f in files if f.endswith("tar.gz")]
             random.shuffle(tar_files)
             for file in tar_files:
                 if (len(self.intensity_values) == 0): feasibility_of_file = 2
                 else: feasibility_of_file = self._check_intensity(file)
-                
+
                 if(feasibility_of_file != 0):
                     tar = tarfile.open(os.path.join(root, file), 'r:gz')
                     dir_info = tar.next()
@@ -697,26 +698,26 @@ class DatanetAPI:
                         flowresults_file = None
                     params_file = tar.extractfile(dir_info.name+"/params.ini")
                     simParameters = self.__process_params_file(params_file)
-                    
+
                     routing_matrix= self._create_routing_matrix(g, routing_file)
                     while(True):
                         s = Sample()
                         s._set_data_set_file_name(os.path.join(root, file))
-                        
+
                         s._results_line = results_file.readline().decode()[:-2]
                         if (flowresults_file):
                             s._flowresults_line = flowresults_file.readline().decode()[:-2]
                         else:
                             s._flowresults_line = None
-                        
+
                         if (len(s._results_line) == 0):
                             break
-                            
+
                         self._process_flow_results_traffic_line(s._results_line, s._flowresults_line, simParameters, s)
                         s._set_routing_matrix(routing_matrix)
                         s._set_topology_object(g)
                         yield s
-    
+
     def _process_flow_results_traffic_line(self, rline, fline, simParameters, s):
         """
         

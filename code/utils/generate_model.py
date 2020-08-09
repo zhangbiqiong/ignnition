@@ -40,6 +40,7 @@ def set_model_info(model_description):
     model_info = model_description
 
 
+
 def normalization(x, feature_list, output_names, output_normalizations,y=None):
     """
     Parameters
@@ -84,6 +85,7 @@ def normalization(x, feature_list, output_names, output_normalizations,y=None):
 
 
     return x
+
 
 def input_fn(data_dir, shuffle=False, training = True):
     """
@@ -382,8 +384,7 @@ class ComnetModel(tf.keras.Model):
                             with tf.name_scope(dst_entity + '_ff_update') as _:
 
                                 # input is the aggregated hs of the sources concat with the current dest. hs
-                                input_dimension = message_dimensionality + int(
-                                    self.input_dimensions[dst_entity])
+                                input_dimension = message_dimensionality + int(self.input_dimensions[dst_entity])
 
                                 setattr(self, str(var_name) + "_layer_" + str(0),
                                         tf.keras.Input(shape=(input_dimension,)))
@@ -508,6 +509,7 @@ class ComnetModel(tf.keras.Model):
                     first = True
                     features = entity.features
                     total = 0
+
                     #concatenate all the features
                     for feature in features:
                         name_feature = feature.name
@@ -524,12 +526,12 @@ class ComnetModel(tf.keras.Model):
                                 state = tf.concat([state,input[name_feature]], axis=1, name="add_"+name_feature)
 
 
-                        shape = tf.stack([input['num_' + name], dim - total], axis=0)  # shape (2,)
+                    shape = tf.stack([input['num_' + name], dim - total], axis=0)  # shape (2,)
 
-                        #add 0s until reaching the given dimension
-                        with tf.name_scope('add_zeros_to_' + str(name)) as _:
-                            state = tf.concat([state,tf.zeros(shape)], axis=1, name="add_zeros_"+name)
-                            setattr(self, str(name)+"_state", state)
+                    #add 0s until reaching the given dimension
+                    with tf.name_scope('add_zeros_to_' + str(name)) as _:
+                        state = tf.concat([state,tf.zeros(shape)], axis=1, name="add_zeros_"+name)
+                        setattr(self, str(name)+"_state", state)
 
 
 
@@ -753,18 +755,6 @@ class ComnetModel(tf.keras.Model):
                                 #Treat the combined message passings' aggregation. Only pre-processing
                                  else:
 
-                                     #--------------------------------------------
-                                     #aggregation
-
-                                     #sum aggreagtion
-                                     #if message.aggregation == 'sum':  # <---- This is not callable yet
-                                     #    with tf.name_scope('combined_sum_preprocessing' + src_name) as _:
-                                     #        m = tf.math.unsorted_segment_sum(messages, destinations,num_dst)  # m is the aggregated values. Sum together the values belonging to the same path
-                                     #        #setattr(self, str(src_name) + '_sum_combined', m)
-                                     #        setattr(self, str(src_name) + '_to_' + str(dst_name) + '_combined', m)
-                                     #        setattr(self, 'lens_' + str(src_name), lens)
-
-
                                      #combination aggreagation
                                      if message.aggregation == 'combination':
                                          with tf.name_scope('combination_preprocessing' + src_name) as _:
@@ -858,6 +848,34 @@ class ComnetModel(tf.keras.Model):
                                                  sources_input = tf.transpose(sources_input, perm=[1, 0, 2])    #(max_of_sources_to_dest_concat x destinations x dim_source) -> destinations x max_of_sources_to_dest_concat x dim_source
 
 
+                                     elif message.message_combination == 'aggregate_together':
+                                         with tf.name_scope('aggregate_together' + dst_name) as _:
+
+                                             for src_name in combine_sources:
+                                                 sources = input['src_' + message.adj_vector]
+                                                 destinations = input['dst_' + message.adj_vector]
+
+                                                 states = getattr(self, str(src_name) + '_state')
+                                                 s = tf.gather(states, sources)
+
+                                                 # obtain the overall input of each of the destinations
+                                                 if first:
+                                                     sources_input = s
+                                                     destinations_indices = d
+                                                     first = False
+                                                 else:
+                                                     sources_input = tf.concat([sources_input, s], axis=0)
+                                                     destinations_indices = tf.concat([destinations_indices, destinations], axis=0)
+
+                                             #each of the states to combine is a tensor of shape num_dest x max_len x dimension_src
+                                             #if message.combined_aggregation == 'sum':
+                                             #    final_input = tf.unsorted_segment_sum()
+
+                                             #elif message.combined_aggregation == 'attention':
+
+
+
+
                                      #here we do the combined update
                                      update_model = message.update
                                      if update_model.type == "recurrent_nn":
@@ -906,13 +924,14 @@ class ComnetModel(tf.keras.Model):
                         prediction_input = input[operation.input[0]]
 
                     r = model(prediction_input)    #predicting should only be done once.
+                    #r = model(prediction_input, training =training)
 
                     if operation.output_name is not None:
                         setattr(self, operation.output_name + '_state', r)
                     return r
 
 
-                if operation.type == "pooling":
+                elif operation.type == "pooling":
                     #obtain the input of the pooling operation
                     try:
                         pooling_input = getattr(self, operation.input[0] + '_state')
@@ -933,6 +952,8 @@ class ComnetModel(tf.keras.Model):
                         pooling_output = tf.reduce_max(pooling_input,0)
                         pooling_output = tf.reshape(pooling_output, [-1] + [pooling_output.shape.as_list()[0]])
 
+                    setattr(self, operation.output_name + '_state', pooling_output)
+
 
                 elif operation.type == 'product':
                     try:
@@ -952,7 +973,7 @@ class ComnetModel(tf.keras.Model):
                             product_output = tf.tensordot(product_input1, product_input2, axes = 0)
 
                         elif operation.type_product == 'element_wise':
-                            product_output = tf.matmul(product_input1, product_input2)
+                            product_output = tf.math.multiply(product_input1, product_input2)
 
                         setattr(self, operation.output_name + '_state', product_output)
 
@@ -1138,12 +1159,13 @@ def model_fn(features,labels,mode):
 
     logging_hook = tf.estimator.LoggingTensorHook(
         {"Loss": loss,
+         "Regularization loss": regularization_loss,
          "Total loss": total_loss}
     , every_n_iter=10)
 
-    return tf.estimator.EstimatorSpec(mode,
-                                      loss=loss,
-                                      train_op=train_op,
-                                      training_hooks=[logging_hook]
-                                      )
+    return EstimatorSpec(mode,
+                          loss=loss,
+                          train_op=train_op,
+                          training_hooks=[logging_hook]
+                          )
 

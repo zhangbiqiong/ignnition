@@ -201,6 +201,7 @@ def generator(dir, feature_names, output_names, adj_names, interleave_names, add
                 for entity, n_nodes in items:
                     data['num_' + entity] = n_nodes
 
+
                 # obtain the sequence for the combined message passing. One for each source entity sending to the destination.
                 for i in interleave_names:
                     name, dst_entity = i

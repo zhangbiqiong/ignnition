@@ -652,7 +652,7 @@ class ComnetModel(tf.keras.Model):
                                             max_len = tf.reduce_max(seq) + 1
 
                                             shape = tf.stack([num_dst, max_len, int(self.dimensions[
-                                                                                        src_name])])  # shape(n_paths, max_len_path, dimension_link)
+                                                                                        src_name])])  # shape(num_dst, max_len_src, dim_src)
 
                                             lens = tf.math.unsorted_segment_sum(tf.ones_like(dst_idx),
                                                                                 dst_idx,
@@ -822,8 +822,7 @@ class ComnetModel(tf.keras.Model):
 
                                                 with tf.name_scope("concat_" + src_name) as _:
                                                     # obtain the new states. Only one message from a certain entity type to each destination node
-                                                    state = getattr(self, str(src_name) + '_to_' + str(
-                                                        dst_name) + '_combined')  # destinations x max_num_sources x dim_src
+                                                    state = getattr(self, str(src_name) + '_to_' + str(dst_name) + '_combined')  # destinations x max_num_sources x dim_src
 
                                                     if first:
                                                         src_input = state
@@ -883,12 +882,10 @@ class ComnetModel(tf.keras.Model):
                                         with tf.name_scope('aggregate_together' + dst_name) as _:
                                             first = True
                                             for src_name in comb_sources:
-                                                src_idx = input['src_' + m.adj_vector]
-                                                dst_idx = input['dst_' + m.adj_vector]
-                                                dst_num = input['num_' + dst_name]
+                                                states = getattr(self, str(src_name) + '_to_' + str(dst_name) + '_combined')
+                                                lens = getattr(self, 'lens_' + str(src_name))
 
-                                                states = getattr(self, str(src_name) + '_state')
-                                                src_states = tf.gather(states, src_idx)
+                                                #states = tf.gather_nd(states, tf.range(lens))
 
                                                 # obtain the overall input of each of the destinations
                                                 if first:

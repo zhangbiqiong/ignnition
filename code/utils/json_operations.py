@@ -24,6 +24,7 @@ from jsonschema import validate
 from auxilary_classes import *
 import copy
 import sys
+from auxilary_classes import *
 
 
 class Model_information:
@@ -435,8 +436,7 @@ class Model_information:
 
     def get_interleave_tensors(self):
         if self.comb_op != {}:
-            result = [[m.combination_definition, m.dst_name] for
-                      m in self.comb_op if isinstance(m, Interleave_comb_mp)]
+            result = [[m.combination_definition, m.dst_name] for messages in self.comb_op.values() for m in messages if isinstance(m, Interleave_comb_mp)  ]
             return result
         else:
             return []

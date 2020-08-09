@@ -949,25 +949,8 @@ class ComnetModel(tf.keras.Model):
 
             counter = 0
             for operation in readout_opeartions:
-
-                if operation.type == "predict":
-                    model = getattr(self, 'readout_model_' + str(counter))
-
-                    try:
-                        prediction_input = getattr(self, operation.input[0] + '_state')
-                    except:
-                        # if it is some additional information of the dataset
-                        prediction_input = input[operation.input[0]]
-
-                    r = model(prediction_input)  # predicting should only be done once.
-
-                    if operation.output_name is not None:
-                        setattr(self, operation.output_name + '_state', r)
-                    return r
-
-                elif operation.type == 'neural_network':
-                    var_name = 'readout_model_' + str(counter)
-                    readout_nn = getattr(self, var_name)
+                if operation.type == 'neural_network' or operation.type == 'predict':
+                    readout_nn = getattr(self,  'readout_model_' + str(counter))
 
                     first = True
                     for i in operation.input:
@@ -979,13 +962,18 @@ class ComnetModel(tf.keras.Model):
                             new_input = input[i]
 
                         if first:
-                            resulting_input = new_input
+                            nn_input = new_input
                             first = False
                         else:
-                            resulting_input = tf.concat([resulting_input, new_input], axis=1)
+                            nn_input = tf.concat([nn_input, new_input], axis=1)
 
-                    result = readout_nn(resulting_input)
-                    setattr(self, operation.output_name + '_state', result)
+                    result = readout_nn(nn_input)
+
+                    if operation.type == 'neural_network':
+                        setattr(self, operation.output_name + '_state', result)
+
+                    else:
+                        return result
 
                 elif operation.type == "pooling":
                     # obtain the input of the pooling operation
@@ -996,18 +984,18 @@ class ComnetModel(tf.keras.Model):
 
                     # here we do the pooling
                     if operation.type_pooling == 'sum':
-                        pooling_output = tf.reduce_sum(pooling_input, 0)
-                        pooling_output = tf.reshape(pooling_output, [-1] + [pooling_output.shape.as_list()[0]])
+                        result = tf.reduce_sum(pooling_input, 0)
+                        result = tf.reshape(result, [-1] + [result.shape.as_list()[0]])
 
                     elif operation.type_pooling == 'mean':
-                        pooling_output = tf.reduce_mean(pooling_input, 0)
-                        pooling_output = tf.reshape(pooling_output, [-1] + [pooling_output.shape.as_list()[0]])
+                        result = tf.reduce_mean(pooling_input, 0)
+                        result = tf.reshape(result, [-1] + [result.shape.as_list()[0]])
 
                     elif operation.type_pooling == 'max':
-                        pooling_output = tf.reduce_max(pooling_input, 0)
-                        pooling_output = tf.reshape(pooling_output, [-1] + [pooling_output.shape.as_list()[0]])
+                        result = tf.reduce_max(pooling_input, 0)
+                        result = tf.reshape(result, [-1] + [result.shape.as_list()[0]])
 
-                    setattr(self, operation.output_name + '_state', pooling_output)
+                    setattr(self, operation.output_name + '_state', result)
 
 
                 elif operation.type == 'product':
@@ -1024,12 +1012,12 @@ class ComnetModel(tf.keras.Model):
 
                     try:
                         if operation.type_product == 'dot_product':
-                            product_output = tf.tensordot(product_input1, product_input2, axes=0)
+                            result = tf.tensordot(product_input1, product_input2, axes=0)
 
                         elif operation.type_product == 'element_wise':
-                            product_output = tf.math.multiply(product_input1, product_input2)
+                            result = tf.math.multiply(product_input1, product_input2)
 
-                        setattr(self, operation.output_name + '_state', product_output)
+                        setattr(self, operation.output_name + '_state', result)
 
                     except:
                         tf.compat.v1.logging.error('IGNNITION:  The product operation between ' + str(
@@ -1038,39 +1026,35 @@ class ComnetModel(tf.keras.Model):
                         sys.exit(1)
 
 
-
-
-
-
                 elif operation.type == 'extend_adjacencies':
-                    adj_list_src = input['src_' + operation.adj_list]
-                    adj_list_dst = input['dst_' + operation.adj_list]
+                    adj_src = input['src_' + operation.adj_list]
+                    adj_dst = input['dst_' + operation.adj_list]
 
                     # get the source input
                     try:
-                        source = getattr(self, operation.input[0] + '_state')
+                        src_states = getattr(self, operation.input[0] + '_state')
                     except:
-                        source = input[operation.input[0]]
+                        src_states = input[operation.input[0]]
 
                     # get the destination input
                     try:
-                        dest = getattr(self, operation.input[1] + '_state')
+                        dst_states = getattr(self, operation.input[1] + '_state')
                     except:
-                        dest = input[operation.input[1]]
+                        dst_states = input[operation.input[1]]
 
                     # obtain the extended input (by extending it to the number of adjacencies between them)
                     try:
-                        extended_src = tf.gather(source, adj_list_src)
+                        extended_src = tf.gather(src_states, adj_src)
                     except:
                         tf.compat.v1.logging.error('IGNNITION:  Extending the adjacency list ' + str(
-                            adj_list) + ' was not possible. Check that the indexes of the source of the adjacency list match the input given.')
+                            operation.adj_list) + ' was not possible. Check that the indexes of the source of the adjacency list match the input given.')
                         sys.exit(1)
 
                     try:
-                        extended_dst = tf.gather(dest, adj_list_dst)
+                        extended_dst = tf.gather(dst_states, adj_dst)
                     except:
                         tf.compat.v1.logging.error('IGNNITION:  Extending the adjacency list ' + str(
-                            adj_list) + ' was not possible. Check that the indexes of the destination of the adjacency list match the input given.')
+                            operation.adj_list) + ' was not possible. Check that the indexes of the destination of the adjacency list match the input given.')
                         sys.exit(1)
 
                     # save the source
@@ -1102,10 +1086,10 @@ def model_fn(features, labels, mode):
 
     # prediction mode. Denormalization is done if so specified
     if mode == tf.estimator.ModeKeys.PREDICT:
-        output_names, _, output_denormalizations = model_info.get_output_info()  # for now suppose we only have one output type
+        output_names, _, output_denorm = model_info.get_output_info()  # for now suppose we only have one output type
 
         try:
-            predictions = eval(output_denormalizations[0])(predictions, output_names[0])
+            predictions = eval(output_denorm[0])(predictions, output_names[0])
         except:
             tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_names[
                 0] + ' was not defined. The output will be normalized.')
@@ -1132,10 +1116,10 @@ def model_fn(features, labels, mode):
     # evaluation mode
     if mode == tf.estimator.ModeKeys.EVAL:
         # perform denormalization if defined
-        output_names, _, output_denormalizations = model_info.get_output_info()
+        output_names, _, output_denorm = model_info.get_output_info()
         try:
-            labels = eval(output_denormalizations[0])(labels, output_names[0])
-            predictions = eval(output_denormalizations[0])(predictions, output_names[0])
+            labels = eval(output_denorm[0])(labels, output_names[0])
+            predictions = eval(output_denorm[0])(predictions, output_names[0])
         except:
             tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_names[
                 0] + ' was not defined. The output (and statistics) will use the normalized values.')

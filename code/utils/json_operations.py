@@ -39,13 +39,13 @@ class Model_information:
     mp_instances:   dict
         Contains the different MP object
 
-    combined_mp_options:    dict
+    comb_op:    dict
         Information of the different combined message passings
 
     outputs:    dict
         Readout architectures to be used for prediction
 
-    training_options:   dict
+    training_op:   dict
         Training options and parameters
 
     entities_dimensions:    dict
@@ -138,14 +138,14 @@ class Model_information:
         self.__validate_model_description(data)
         self.__add_dimensions(data, dimensions)  # add the dimension of the features and of the edges
 
-        self.nn_architectures = self.__obtain_neural_networks_mapping(data['neural_networks'])
-        self.entities = self.__obtain_entities(data['entities'])
+        self.nn_architectures = self.__get_nn_mapping(data['neural_networks'])
+        self.entities = self.__get_entities(data['entities'])
         self.iterations_mp = data['message_passing']['num_iterations']
-        self.mp_instances = self.__obtain_mp_instances(data['message_passing']['architecture'])
-        self.combined_mp_options = self.__calculate_mp_combination_options(data)  # if there is any
-        self.readout_operations = self.__obtain_readout_operations(data['readout'])
-        self.training_options = self.__obtain_training_options(data)
-        self.input_dimensions = self.__get_input_dimensions(dimensions)
+        self.mp_instances = self.__get_mp_instances(data['message_passing']['architecture'])
+        self.comb_op = self.__calc_comb_options(data)  # if there is any
+        self.readout_op = self.__get_readout_op(data['readout'])
+        self.training_op = self.__get_training_op(data)
+        self.input_dim = self.__get_input_dims(dimensions)
 
     # PRIVATE
     def __read_json(self, path):
@@ -176,48 +176,48 @@ class Model_information:
     def __validate_model_description(self, data):
         steps = data['message_passing']['architecture']
 
-        sources = []
-        destinations = []
-        nn_name_called = []
+        src_names = []
+        dst_names = []
+        called_nn_names = []
         output_names = ['hs_source', 'hs_dest', 'edge_params']
         input_names = []
         for s in steps:
             s = s['mp_step']
             for m in s:  # for every message-passing
-                sources.append(m['source_entity'])
-                destinations.append(m['destination_entity'])
+                src_names.append(m['source_entity'])
+                dst_names.append(m['destination_entity'])
 
                 if 'message' in m:
                     for op in m['message']:  # for every operation
                         if op['type'] == 'neural_network':
-                            nn_name_called.append(op['nn_name'])
+                            called_nn_names.append(op['nn_name'])
                             input_names += op['input']
 
                             if 'output_name' in op:
                                 output_names.append(op['output_name'])
 
-        readout_operations = data['readout']
-        for op in readout_operations:
+        readout_op = data['readout']
+        for op in readout_op:
             if op['type'] == 'predict':
-                nn_name_called.append(op['nn_name'])
+                called_nn_names.append(op['nn_name'])
 
         # now check the entities
         entity_names = [a['name'] for a in data['entities']]
         nn_names = [a['nn_name'] for a in data['neural_networks']]
         try:
 
-            for a in sources:
+            for a in src_names:
                 if a not in entity_names:
                     raise Exception(
                         'The source entity ' + a + ' was used in a message passing. However, there is no such entity. \n Please check the spelling or define a new entity.')
 
-            for d in destinations:
+            for d in dst_names:
                 if d not in entity_names:
                     raise Exception(
                         'The destination entity ' + d + ' was used in a message passing. However, there is no such entity. \n Please check the spelling or define a new entity.')
 
             # check the nn_names
-            for name in nn_name_called:
+            for name in called_nn_names:
                 if name not in nn_names:
                     raise Exception(
                         'The name ' + name + " is used as a reference to a neural network (nn_name), even though the neural network was not defined. \n Please make sure the name is correctly spelled or define a neural network named " + name)
@@ -232,7 +232,7 @@ class Model_information:
             tf.compat.v1.logging.error('IGNNITION: ' + str(inf) + '\n')
             sys.exit(1)
 
-    def __obtain_neural_networks_mapping(self, models):
+    def __get_nn_mapping(self, models):
         result = {}
 
         for m in models:
@@ -240,7 +240,7 @@ class Model_information:
 
         return result
 
-    def __obtain_entities(self, entities):
+    def __get_entities(self, entities):
         """
         Parameters
         ----------
@@ -281,7 +281,7 @@ class Model_information:
 
         return m
 
-    def __obtain_mp_instances(self, inst):
+    def __get_mp_instances(self, inst):
         """
         Parameters
         ----------
@@ -296,7 +296,7 @@ class Model_information:
 
         return mp_instances
 
-    def __calculate_mp_combination_options(self, data):
+    def __calc_comb_options(self, data):
         """
         Parameters
         ----------
@@ -326,7 +326,7 @@ class Model_information:
 
         return output
 
-    def __obtain_readout_operations(self, output_operations):
+    def __get_readout_op(self, output_operations):
         """
         Parameters
         ----------
@@ -357,27 +357,7 @@ class Model_information:
 
         return result
 
-    def get_additional_input_names(self):
-        output_names = set()
-        input_names = set()
-
-        for r in self.readout_operations:
-            if r.type == 'extend_adjacencies':
-                output_names.update(r.output_name)
-
-            elif r.type != 'predict':
-                output_names.add(r.output_name)
-
-            for i in r.input:
-                input_names.add(i)
-
-        for e in self.entities:
-            output_names.add(e.name)
-
-        result = input_names.difference(output_names)
-        return list(result)
-
-    def __obtain_training_options(self, data):
+    def __get_training_op(self, data):
         """
         Parameters
         ----------
@@ -395,7 +375,7 @@ class Model_information:
             dict['schedule'] = train_hp['schedule']  # optional
         return dict
 
-    def __get_input_dimensions(self, dimensions):
+    def __get_input_dims(self, dimensions):
         dict = {}
         for entity in self.entities:
             dict[entity.name] = entity.hidden_state_dimension
@@ -407,13 +387,13 @@ class Model_information:
     # ----------------------------------------------------------------
     # PUBLIC FUNCTIONS GETTERS
     def get_input_dimensions(self):
-        return self.input_dimensions
+        return self.input_dim
 
     def get_entities(self):
         return self.entities
 
     def get_combined_mp_options(self):
-        return self.combined_mp_options
+        return self.comb_op
 
     def get_combined_mp_sources(self, dst_entity, step_name):
         sources = []
@@ -429,7 +409,7 @@ class Model_information:
         result = []
 
         interleave_steps = []
-        for k, v in self.combined_mp_options.items():
+        for k, v in self.comb_op.items():
             for c in v:
                 if c.message_combination == 'interleave':
                     interleave_steps.append([k, c.destination_entity])
@@ -445,11 +425,11 @@ class Model_information:
         return self.iterations_mp
 
     def get_interleave_tensors(self):
-        if self.combined_mp_options != {}:
-            combination_blocks = list(self.combined_mp_options.values())
-            combination_blocks = [s for sublist in combination_blocks for s in sublist]
+        if self.comb_op != {}:
+            comb_blocks = list(self.comb_op.values())
+            comb_blocks = [s for sublist in comb_blocks for s in sublist]
             result = [[combined_message.combination_definition, combined_message.destination_entity] for
-                      combined_message in combination_blocks if combined_message.message_combination == 'interleave']
+                      combined_message in comb_blocks if combined_message.message_combination == 'interleave']
             return result
         else:
             return []
@@ -458,21 +438,21 @@ class Model_information:
         return self.mp_instances
 
     def get_schedule(self):
-        return self.training_options['schedule']
+        return self.training_op['schedule']
 
     def get_optimizer(self):
-        return self.training_options['optimizer']
+        return self.training_op['optimizer']
 
     def get_loss(self):
-        return self.training_options['loss']
+        return self.training_op['loss']
 
     def get_readout_operations(self):
-        return self.readout_operations
+        return self.readout_op
 
     def get_output_info(self):
-        result_names = [o.label for o in self.readout_operations if o.type == 'predict']
-        result_norm = [o.label_normalization for o in self.readout_operations if o.type == 'predict']
-        result_denorm = [o.label_denormalization for o in self.readout_operations if o.type == 'predict']
+        result_names = [o.label for o in self.readout_op if o.type == 'predict']
+        result_norm = [o.label_normalization for o in self.readout_op if o.type == 'predict']
+        result_denorm = [o.label_denormalization for o in self.readout_op if o.type == 'predict']
         return result_names, result_norm, result_denorm
 
     def get_all_features(self):
@@ -495,3 +475,24 @@ class Model_information:
                 result.append(instance.get_instance_info())
 
         return result
+
+
+    def get_additional_input_names(self):
+        output_names = set()
+        input_names = set()
+
+        for r in self.readout_op:
+            if r.type == 'extend_adjacencies':
+                output_names.update(r.output_name)
+
+            elif r.type != 'predict':
+                output_names.add(r.output_name)
+
+            for i in r.input:
+                input_names.add(i)
+
+        for e in self.entities:
+            output_names.add(e.name)
+
+        return list(input_names.difference(output_names))
+

@@ -50,7 +50,7 @@ def make_indices(entities):
     return counter, indices
 
 
-def generator(dir, feature_names, output_names, adjecencies_names, interleave_names, additional_input, training,
+def generator(dir, feature_names, output_names, adj_names, interleave_names, additional_input, training,
               shuffle=False):
     """
     Parameters
@@ -61,7 +61,7 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
        Name of the features to be found in the dataset
     output_names:    str
        Name of the output data to be found in the dataset
-    adjecencies_names:    [array]
+    adj_names:    [array]
        CHECK
     interleave_names:    [array]
        First parameter is the name of the interleave, and the second the destination entity
@@ -75,9 +75,9 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
     dir = dir.decode('ascii')
     feature_names = [x.decode('ascii') for x in feature_names]
     output_names = [o.decode('ascii') for o in output_names]
-    adjecencies_names = [
+    adj_names = [
         [x[0].decode('ascii'), x[1].decode('ascii'), x[2].decode('ascii'), x[3].decode('ascii'), x[4].decode('ascii')]
-        for x in adjecencies_names]
+        for x in adj_names]
     interleave_names = [[i[0].decode('ascii'), i[1].decode('ascii')] for i in interleave_names]
     additional_input = [x.decode('ascii') for x in additional_input]
     samples = glob.glob(str(dir) + '/*.tar.gz')
@@ -134,7 +134,7 @@ def generator(dir, feature_names, output_names, adjecencies_names, interleave_na
                 num_nodes, indices = make_indices(entities)
 
                 # create the adjacencies
-                for a in adjecencies_names:
+                for a in adj_names:
                     name, src_entity, dst_entity, ordered, uses_parameters = a
 
                     if name not in sample:

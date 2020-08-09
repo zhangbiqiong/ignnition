@@ -312,7 +312,17 @@ class Model_information:
                 step_name = mp_info['step']
                 if step_name not in dict:
                     dict[step_name] = []
-                c = Combined_mp(self.__add_nn_architecture(mp_info))
+
+                #here distinguish between the type of comb_mp
+                aux2 = self.__add_nn_architecture(mp_info)
+                message_combination = aux2['message_combination']
+                if message_combination == 'interleave':
+                    c = Interleave_comb_mp(aux2)
+                elif message_combination == 'aggregate_together':
+                    c = Aggregated_comb_mp(aux2)
+                else:
+                    c = Concat_comb_mp(aux)
+
                 dict[step_name].append(c)
             return dict
         else:
@@ -407,12 +417,11 @@ class Model_information:
 
     def get_interleave_sources(self):
         result = []
-
         interleave_steps = []
         for k, v in self.comb_op.items():
             for c in v:
-                if c.message_combination == 'interleave':
-                    interleave_steps.append([k, c.destination_entity])
+                if isinstance(c, Interleave_comb_mp):
+                    interleave_steps.append([k, c.dst_name])
 
         for step in self.mp_instances:
             for m in step[1]:
@@ -426,10 +435,8 @@ class Model_information:
 
     def get_interleave_tensors(self):
         if self.comb_op != {}:
-            comb_blocks = list(self.comb_op.values())
-            comb_blocks = [s for sublist in comb_blocks for s in sublist]
-            result = [[combined_message.combination_definition, combined_message.destination_entity] for
-                      combined_message in comb_blocks if combined_message.message_combination == 'interleave']
+            result = [[m.combination_definition, m.dst_name] for
+                      m in self.comb_op if isinstance(m, Interleave_comb_mp)]
             return result
         else:
             return []

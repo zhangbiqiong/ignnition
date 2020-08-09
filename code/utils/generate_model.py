@@ -27,6 +27,7 @@ from tensorflow.keras.losses import *
 from tensorflow.keras.optimizers import *
 from tensorflow.keras.optimizers.schedules import *
 from keras import backend as K
+from auxilary_classes import *
 
 
 def set_model_info(model_description):
@@ -351,7 +352,7 @@ class ComnetModel(tf.keras.Model):
             for step in combined_models:
                 messages_to_combine = combined_models[step]
                 for mp in messages_to_combine:
-                    dst_name = mp.destination_entity
+                    dst_name = mp.dst_name
                     model_op = mp.update
 
                     if model_op.type == 'recurrent_nn':
@@ -805,17 +806,15 @@ class ComnetModel(tf.keras.Model):
                             m_2_combine = comb_models[step_name]
 
                             for m in m_2_combine:
-                                dst_name = m.destination_entity
+                                dst_name = m.dst_name
+
                                 # entities that are senders in this message passing
                                 comb_sources = model_info.get_combined_mp_sources(dst_name, step_name)
-                                comb_strategy = m.message_combination
 
                                 # concatenation combination.
                                 with tf.name_scope("combined_mp_to" + dst_name) as _:
-
-                                    if comb_strategy == 'concat':
+                                    if isinstance(m, Concat_comb_mp):
                                         with tf.name_scope("concatenate_input_of_" + dst_name) as _:
-
                                             first = True
                                             for src_name in comb_sources:
                                                 len = getattr(self, 'lens_' + str(
@@ -827,20 +826,20 @@ class ComnetModel(tf.keras.Model):
                                                         dst_name) + '_combined')  # destinations x max_num_sources x dim_src
 
                                                     if first:
-                                                        sources_input = state
+                                                        src_input = state
                                                         first = False
                                                         final_len = len
                                                     else:
                                                         # concatenate, so every node receives only one message
                                                         # axis = 1 is to concat all the messages for a dest. axis=2 is to concat by message
-                                                        sources_input = tf.concat([sources_input, state],
+                                                        src_input = tf.concat([src_input, state],
                                                                                   axis=m.concat_axis)
 
                                                         if m.concat_axis == 1:  # if axis=2, then the number of messages received is the same. Simply create bigger messages
                                                             final_len += len
 
                                     # interleave combination
-                                    elif comb_strategy == 'interleave':
+                                    elif isinstance(m, Interleave_comb_mp):
                                         with tf.name_scope('interleave_' + dst_name) as _:
 
                                             first = True
@@ -856,11 +855,11 @@ class ComnetModel(tf.keras.Model):
                                                     indices_source = input["indices_" + src_name + '_to_' + dst_name]
                                                     if first:
                                                         first = False
-                                                        sources_input = s  # destinations x max_of_sources_to_dest x dim_source
+                                                        src_input = s  # destinations x max_of_sources_to_dest x dim_source
                                                         indices = indices_source
                                                         final_len = len
                                                     else:
-                                                        sources_input = tf.concat([sources_input, s],
+                                                        src_input = tf.concat([src_input, s],
                                                                                   axis=1)  # destinations x max_of_sources_to_dest_concat x dim_source
                                                         indices = tf.stack([indices, indices_source], axis=0)
                                                         final_len = tf.math.add(final_len,
@@ -868,42 +867,42 @@ class ComnetModel(tf.keras.Model):
 
                                             # place each of the messages into the right spot in the sequence defined
                                             with tf.name_scope('order_sources_from_' + dst_name) as _:
-                                                sources_input = tf.transpose(sources_input, perm=[1, 0,
+                                                src_input = tf.transpose(src_input, perm=[1, 0,
                                                                                                   2])  # destinations x max_of_sources_to_dest_concat x dim_source ->  (max_of_sources_to_dest_concat x destinations x dim_source)
                                                 indices = tf.reshape(indices, [-1, 1])
 
-                                                sources_input = tf.scatter_nd(indices, sources_input,
-                                                                              tf.shape(sources_input,
+                                                src_input = tf.scatter_nd(indices, src_input,
+                                                                              tf.shape(src_input,
                                                                                        out_type=tf.int64))
 
-                                                sources_input = tf.transpose(sources_input, perm=[1, 0,
+                                                src_input = tf.transpose(src_input, perm=[1, 0,
                                                                                                   2])  # (max_of_sources_to_dest_concat x destinations x dim_source) -> destinations x max_of_sources_to_dest_concat x dim_source
 
 
-                                    elif comb_strategy == 'aggregate_together':
+                                    elif isinstance(m, Aggregated_comb_mp):
                                         with tf.name_scope('aggregate_together' + dst_name) as _:
-
+                                            first = True
                                             for src_name in comb_sources:
                                                 src_idx = input['src_' + m.adj_vector]
                                                 dst_idx = input['dst_' + m.adj_vector]
+                                                dst_num = input['num_' + dst_name]
 
                                                 states = getattr(self, str(src_name) + '_state')
-                                                s = tf.gather(states, src_idx)
+                                                src_states = tf.gather(states, src_idx)
 
                                                 # obtain the overall input of each of the destinations
                                                 if first:
-                                                    sources_input = s
-                                                    destinations_indices = dst_idx
+                                                    src_input = src_states
+                                                    comb_dest_idx = dst_idx
                                                     first = False
                                                 else:
-                                                    sources_input = tf.concat([sources_input, s], axis=0)
-                                                    destinations_indices = tf.concat(
-                                                        [destinations_indices, dst_idx], axis=0)
+                                                    src_input = tf.concat([src_input, src_states], axis=0)
+                                                    comb_dest_idx = tf.concat([comb_dest_idx, dst_idx], axis=0)
 
 
                                             # each of the states to combine is a tensor of shape num_dest x max_len x dimension_src
                                             if m.combined_aggregation == 'sum':
-                                                final_input = tf.unsorted_segment_sum()
+                                                src_input = tf.unsorted_segment_sum(src_input, comb_dest_idx, dst_num)
 
                                             # elif message.combined_aggregation == 'attention':
 
@@ -919,7 +918,7 @@ class ComnetModel(tf.keras.Model):
 
                                             gru_rnn = tf.keras.layers.RNN(model, return_sequences=True,
                                                                           return_state=True)
-                                            outputs, new_state = gru_rnn(inputs=sources_input, initial_state=old_state,
+                                            outputs, new_state = gru_rnn(inputs=src_input, initial_state=old_state,
                                                                          mask=tf.sequence_mask(final_len))
 
                                             setattr(self, str(dst_name) + '_state', new_state)
@@ -932,7 +931,7 @@ class ComnetModel(tf.keras.Model):
                                                 current_hs = getattr(self, dst_name + '_state')
 
                                                 # now we need to obtain for each adjacency the concatenation of the source and the destination
-                                                update_input = tf.concat([sources_input, current_hs], axis=1)
+                                                update_input = tf.concat([src_input, current_hs], axis=1)
                                                 new_state = update(update_input)
                                                 setattr(self, str(dst_name) + '_state', new_state)  # update new state
 

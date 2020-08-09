@@ -230,7 +230,8 @@
                             },
                             "combined_aggregation": {
                                 "description": "Aggregate all the messages together, treating them all similarly",
-                                "type": "string"
+                                "type": "string",
+                                "enum": ["sum", "attention"]
                             },
                             "concat_axis": {
                                 "description": "Define how to concatenate the messages together",

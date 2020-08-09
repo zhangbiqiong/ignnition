@@ -152,7 +152,7 @@ class Combined_mp:
     """
     Attributes
     ----------
-    destination_entity:     str
+    dst_name:     str
         Name of the destination entity of this combined message passing
     message_combination:    str
         Type of message combination
@@ -170,28 +170,37 @@ class Combined_mp:
             Dictionary with the required attributes
         """
 
-        self.destination_entity = dict['destination_entity']
-        self.message_combination = dict['message_combination']
-        self.concat_axis = 1
+        self.dst_name = dict['destination_entity']
+        #self.message_combination = dict['message_combination']
 
-        # define the interleave definition
-        if 'interleave_definition' in dict:
-            self.combination_definition = dict['interleave_definition']
-        else:
-            self.combination_definition = None
-
+        # define the update
         params = dict['update']
 
-        # define the update type
         if params['type'] == 'recurrent_neural_network':
             self.update = Apply_rnn(params)
 
         elif params['type'] == 'neural_network':
             self.update = Apply_nn(params)
 
-        # define how to concatenate the axis
-        if 'concat_axis' in dict:
-            self.concat_axis = int(dict['concat_axis'])
+
+class Interleave_comb_mp(Combined_mp):
+    def __init__(self, dict):
+        super(Interleave_comb_mp, self).__init__(dict)
+
+        self.combination_definition = dict['interleave_definition']
+
+
+class Concat_comb_mp(Combined_mp):
+    def __init__(self, dict):
+        super(Concat_comb_mp, self).__init__(dict)
+        self.concat_axis = int(dict['concat_axis'])
+
+
+class Aggregated_comb_mp(Combined_mp):
+    def __init__(self, dict):
+        super(Aggregated_comb_mp, self).__init__(dict)
+        self.combined_aggregation = dict['combined_aggregation']
+
 
 
 class Message_Passing:

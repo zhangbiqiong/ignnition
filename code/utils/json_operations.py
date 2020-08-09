@@ -25,6 +25,7 @@ from auxilary_classes import *
 import copy
 import sys
 
+
 class Model_information:
     """
     Attributes
@@ -130,24 +131,23 @@ class Model_information:
             Path of the json file with the model description
         """
 
-        #read and validate the json file
+        # read and validate the json file
         data = self.__read_json(path)
-        validate(instance=data,schema=self.__read_json('./utils/schema.json'))  # validate that the json is well defined
+        validate(instance=data,
+                 schema=self.__read_json('./utils/schema.json'))  # validate that the json is well defined
         self.__validate_model_description(data)
-        self.__add_dimensions(data, dimensions) #add the dimension of the features and of the edges
+        self.__add_dimensions(data, dimensions)  # add the dimension of the features and of the edges
 
         self.nn_architectures = self.__obtain_neural_networks_mapping(data['neural_networks'])
         self.entities = self.__obtain_entities(data['entities'])
         self.iterations_mp = data['message_passing']['num_iterations']
         self.mp_instances = self.__obtain_mp_instances(data['message_passing']['architecture'])
-        self.combined_mp_options = self.__calculate_mp_combination_options(data)    #if there is any
+        self.combined_mp_options = self.__calculate_mp_combination_options(data)  # if there is any
         self.readout_operations = self.__obtain_readout_operations(data['readout'])
         self.training_options = self.__obtain_training_options(data)
         self.input_dimensions = self.__get_input_dimensions(dimensions)
 
-
-
-    #PRIVATE
+    # PRIVATE
     def __read_json(self, path):
         """
         Parameters
@@ -160,12 +160,11 @@ class Model_information:
             data = json.load(json_file)
             return data
 
-
     def __add_dimensions(self, data, dimensions):
         for e in data['entities']:
             for f in e['features']:
                 name = f['name']
-                f['size'] = dimensions[name]    #add the dimension of the feature
+                f['size'] = dimensions[name]  # add the dimension of the feature
 
         for s in data['message_passing']['architecture']:
             aux = s['mp_step']
@@ -173,9 +172,7 @@ class Model_information:
                 name = a['adj_vector']
                 a['extra_parameters'] = dimensions[name]
 
-
-
-    #validate that all the nn_name are correct. Validate that all source and destination entities are correct. Validate that all the inputs in the message function are correct
+    # validate that all the nn_name are correct. Validate that all source and destination entities are correct. Validate that all the inputs in the message function are correct
     def __validate_model_description(self, data):
         steps = data['message_passing']['architecture']
 
@@ -186,12 +183,12 @@ class Model_information:
         input_names = []
         for s in steps:
             s = s['mp_step']
-            for m in s: #for every message-passing
+            for m in s:  # for every message-passing
                 sources.append(m['source_entity'])
                 destinations.append(m['destination_entity'])
 
                 if 'message' in m:
-                    for op in m['message']: #for every operation
+                    for op in m['message']:  # for every operation
                         if op['type'] == 'neural_network':
                             nn_name_called.append(op['nn_name'])
                             input_names += op['input']
@@ -204,37 +201,36 @@ class Model_information:
             if op['type'] == 'predict':
                 nn_name_called.append(op['nn_name'])
 
-
-        #now check the entities
+        # now check the entities
         entity_names = [a['name'] for a in data['entities']]
         nn_names = [a['nn_name'] for a in data['neural_networks']]
         try:
 
             for a in sources:
                 if a not in entity_names:
-                    raise Exception('The source entity ' + a + ' was used in a message passing. However, there is no such entity. \n Please check the spelling or define a new entity.')
+                    raise Exception(
+                        'The source entity ' + a + ' was used in a message passing. However, there is no such entity. \n Please check the spelling or define a new entity.')
 
             for d in destinations:
                 if d not in entity_names:
-                    raise Exception('The destination entity ' + d + ' was used in a message passing. However, there is no such entity. \n Please check the spelling or define a new entity.')
+                    raise Exception(
+                        'The destination entity ' + d + ' was used in a message passing. However, there is no such entity. \n Please check the spelling or define a new entity.')
 
-
-            #check the nn_names
+            # check the nn_names
             for name in nn_name_called:
                 if name not in nn_names:
-                    raise Exception('The name ' + name + " is used as a reference to a neural network (nn_name), even though the neural network was not defined. \n Please make sure the name is correctly spelled or define a neural network named " + name)
+                    raise Exception(
+                        'The name ' + name + " is used as a reference to a neural network (nn_name), even though the neural network was not defined. \n Please make sure the name is correctly spelled or define a neural network named " + name)
 
-            #check the output and input names
+            # check the output and input names
             for i in input_names:
                 if i not in output_names:
-                    raise Exception('The name ' + i + " was used as input of a message creation operation even though it wasn't the output of one.")
+                    raise Exception(
+                        'The name ' + i + " was used as input of a message creation operation even though it wasn't the output of one.")
 
         except Exception as inf:
             tf.compat.v1.logging.error('IGNNITION: ' + str(inf) + '\n')
             sys.exit(1)
-
-
-
 
     def __obtain_neural_networks_mapping(self, models):
         result = {}
@@ -243,7 +239,6 @@ class Model_information:
             result[m['nn_name']] = m
 
         return result
-
 
     def __obtain_entities(self, entities):
         """
@@ -256,13 +251,12 @@ class Model_information:
         l = [Entity(e) for e in entities]
         return l
 
-
-    #substitutes the referenced name by the correct architecture
+    # substitutes the referenced name by the correct architecture
     def __add_nn_architecture(self, m):
 
-        #we need to find out what the input dimension is
+        # we need to find out what the input dimension is
 
-        #add the message_creation nn architecture
+        # add the message_creation nn architecture
         if 'message' in m:
             for op in m['message']:
                 if op['type'] == 'neural_network':
@@ -270,24 +264,22 @@ class Model_information:
                     del op['nn_name']
                     op['architecture'] = info['nn_architecture']
 
-        #add the update nn architecture
+        # add the update nn architecture
         if 'update' in m:
             if m['update']['type'] == 'neural_network':
                 info = copy.deepcopy(self.nn_architectures[m['update']['nn_name']])
                 del m['update']['nn_name']
                 m['update']['architecture'] = info['nn_architecture']
 
-
             if m['update']['type'] == 'recurrent_neural_network':
                 architecture = copy.deepcopy((self.nn_architectures[m['update']['nn_name']]))
                 del m['update']['nn_name']
 
-                for k,v in architecture.items():
-                    if k != 'nn_name' and k!= 'nn_type':
+                for k, v in architecture.items():
+                    if k != 'nn_name' and k != 'nn_type':
                         m['update'][k] = v
 
         return m
-
 
     def __obtain_mp_instances(self, inst):
         """
@@ -300,10 +292,9 @@ class Model_information:
 
         for step in inst:
             aux = [Message_Passing(self.__add_nn_architecture(m)) for m in step['mp_step']]
-            mp_instances.append([step['step_name'],aux])
+            mp_instances.append([step['step_name'], aux])
 
         return mp_instances
-
 
     def __calculate_mp_combination_options(self, data):
         """
@@ -327,7 +318,6 @@ class Model_information:
         else:
             return {}
 
-
     def __add_readout_architecture(self, output):
         name = output['nn_name']
         info = copy.deepcopy(self.nn_architectures[name])
@@ -335,7 +325,6 @@ class Model_information:
         output['architecture'] = info['nn_architecture']
 
         return output
-
 
     def __obtain_readout_operations(self, output_operations):
         """
@@ -368,8 +357,7 @@ class Model_information:
 
         return result
 
-
-    def obtain_additional_input_names(self):
+    def get_additional_input_names(self):
         output_names = set()
         input_names = set()
 
@@ -382,7 +370,6 @@ class Model_information:
 
             for i in r.input:
                 input_names.add(i)
-
 
         for e in self.entities:
             output_names.add(e.name)
@@ -401,25 +388,24 @@ class Model_information:
         train_hp = data['learning_options']
         dict = {}
 
-        dict['loss'] = train_hp['loss'] #required
-        dict['optimizer'] = train_hp['optimizer']   #required
+        dict['loss'] = train_hp['loss']  # required
+        dict['optimizer'] = train_hp['optimizer']  # required
 
         if 'schedule' in train_hp:
-            dict['schedule'] = train_hp['schedule'] #optional
+            dict['schedule'] = train_hp['schedule']  # optional
         return dict
 
-
-    def __get_input_dimensions(self,dimensions):
+    def __get_input_dimensions(self, dimensions):
         dict = {}
         for entity in self.entities:
             dict[entity.name] = entity.hidden_state_dimension
 
-        #add the size of additional inputs if needed
+        # add the size of additional inputs if needed
         dict = {**dict, **dimensions}
         return dict
 
     # ----------------------------------------------------------------
-    #PUBLIC FUNCTIONS GETTERS
+    # PUBLIC FUNCTIONS GETTERS
     def get_input_dimensions(self):
         return self.input_dimensions
 
@@ -432,9 +418,9 @@ class Model_information:
     def get_combined_mp_sources(self, dst_entity, step_name):
         sources = []
         for step in self.mp_instances:
-            if step[0] == step_name:   #check if we are in fact within the step we care about
+            if step[0] == step_name:  # check if we are in fact within the step we care about
                 for m in step[1]:  # this is just one value
-                    if (m.type == "multi_source") & (m.destination_entity== dst_entity):
+                    if (m.type == "multi_source") & (m.destination_entity == dst_entity):
                         sources.append(m.source_entity)
 
         return sources
@@ -443,26 +429,27 @@ class Model_information:
         result = []
 
         interleave_steps = []
-        for k,v in self.combined_mp_options.items():
+        for k, v in self.combined_mp_options.items():
             for c in v:
                 if c.message_combination == 'interleave':
                     interleave_steps.append([k, c.destination_entity])
 
         for step in self.mp_instances:
             for m in step[1]:
-                if m.type == "multi_source" and m.aggregation == 'combination' and [step[0], m.destination_entity] in interleave_steps:
-                    result.append([m.source_entity,m.destination_entity])
+                if m.type == "multi_source" and m.aggregation == 'combination' and [step[0],
+                                                                                    m.destination_entity] in interleave_steps:
+                    result.append([m.source_entity, m.destination_entity])
         return result
 
     def get_mp_iterations(self):
-       return self.iterations_mp
-
+        return self.iterations_mp
 
     def get_interleave_tensors(self):
         if self.combined_mp_options != {}:
             combination_blocks = list(self.combined_mp_options.values())
             combination_blocks = [s for sublist in combination_blocks for s in sublist]
-            result  = [[combined_message.combination_definition, combined_message.destination_entity] for combined_message in combination_blocks if combined_message.message_combination == 'interleave' ]
+            result = [[combined_message.combination_definition, combined_message.destination_entity] for
+                      combined_message in combination_blocks if combined_message.message_combination == 'interleave']
             return result
         else:
             return []
@@ -479,17 +466,14 @@ class Model_information:
     def get_loss(self):
         return self.training_options['loss']
 
-
     def get_readout_operations(self):
         return self.readout_operations
 
     def get_output_info(self):
-        result_names = [o.label for o in self.readout_operations if o.type=='predict']
+        result_names = [o.label for o in self.readout_operations if o.type == 'predict']
         result_norm = [o.label_normalization for o in self.readout_operations if o.type == 'predict']
         result_denorm = [o.label_denormalization for o in self.readout_operations if o.type == 'predict']
         return result_names, result_norm, result_denorm
-
-
 
     def get_all_features(self):
         all_features = []

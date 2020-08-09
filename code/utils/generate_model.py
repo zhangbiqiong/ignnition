@@ -28,6 +28,7 @@ from tensorflow.keras.optimizers import *
 from tensorflow.keras.optimizers.schedules import *
 from keras import backend as K
 
+
 def set_model_info(model_description):
     """
     Parameters
@@ -40,8 +41,7 @@ def set_model_info(model_description):
     model_info = model_description
 
 
-
-def normalization(x, feature_list, output_names, output_normalizations,y=None):
+def normalization(x, feature_list, output_names, output_normalizations, y=None):
     """
     Parameters
     ----------
@@ -64,12 +64,12 @@ def normalization(x, feature_list, output_names, output_normalizations,y=None):
             try:
                 x[f_name] = eval(norm_type)(x[f_name], f_name)
             except:
-                tf.compat.v1.logging.error('IGNNITION: The normalization function ' + str(norm_type) + ' is not defined in the main file.')
+                tf.compat.v1.logging.error(
+                    'IGNNITION: The normalization function ' + str(norm_type) + ' is not defined in the main file.')
                 sys.exit(1)
 
-
-    #this normalization is only ready for one single output !!!
-    if y != None:   #if we have labels to normalize
+    # this normalization is only ready for one single output !!!
+    if y != None:  # if we have labels to normalize
         n = len(output_names)
 
         for i in range(n):
@@ -79,15 +79,15 @@ def normalization(x, feature_list, output_names, output_normalizations,y=None):
                 try:
                     y = eval(norm_type)(y, output_names[i])
                 except:
-                    tf.compat.v1.logging.error('IGNNITION: The normalization function ' + str(norm_type) + ' is not defined in the main file.')
+                    tf.compat.v1.logging.error(
+                        'IGNNITION: The normalization function ' + str(norm_type) + ' is not defined in the main file.')
                     sys.exit(1)
         return x, y
-
 
     return x
 
 
-def input_fn(data_dir, shuffle=False, training = True):
+def input_fn(data_dir, shuffle=False, training=True):
     """
     Parameters
     ----------
@@ -109,8 +109,8 @@ def input_fn(data_dir, shuffle=False, training = True):
         entity_list = model_info.get_entities()
         interleave_list = model_info.get_interleave_tensors()
         interleave_sources = model_info.get_interleave_sources()
-        output_names, output_normalizations,_ = model_info.get_output_info()
-        additional_input = model_info.obtain_additional_input_names()
+        output_names, output_normalizations, _ = model_info.get_output_info()
+        additional_input = model_info.get_additional_input_names()
         unique_additional_input = [a for a in additional_input if a not in feature_list]
 
         types = {}
@@ -121,11 +121,10 @@ def input_fn(data_dir, shuffle=False, training = True):
             types[a] = tf.int64
             shapes[a] = tf.TensorShape(None)
 
-
         for f in feature_list:
             f_name = f.name
             feature_names.append(f_name)
-            types[f_name] =tf.float32
+            types[f_name] = tf.float32
             shapes[f_name] = tf.TensorShape(None)
 
         for a in adjecency_info:
@@ -134,45 +133,46 @@ def input_fn(data_dir, shuffle=False, training = True):
             types['dst_' + a[0]] = tf.int64
             shapes['dst_' + a[0]] = tf.TensorShape([None])
 
-            #indicates that we need to keep track of the order
+            # indicates that we need to keep track of the order
             if a[3] == 'True':
                 types['seq_' + a[1] + '_' + a[2]] = tf.int64
                 shapes['seq_' + a[1] + '_' + a[2]] = tf.TensorShape([None])
 
             if a[4] == 'True':
-                types['params_' + a[0] ] = tf.int64
+                types['params_' + a[0]] = tf.int64
                 shapes['params_' + a[0]] = tf.TensorShape(None)
 
         for e in entity_list:
-            types['num_'+e.name] = tf.int64
+            types['num_' + e.name] = tf.int64
             shapes['num_' + e.name] = tf.TensorShape([])
-
 
         for i in interleave_sources:
             types['indices_' + i[0] + '_to_' + i[1]] = tf.int64
             shapes['indices_' + i[0] + '_to_' + i[1]] = tf.TensorShape([None])
 
-
-        if training: #if we do training, we also expect the labels
+        if training:  # if we do training, we also expect the labels
             ds = tf.data.Dataset.from_generator(generator,
                                                 (types, tf.float32),
                                                 (shapes, tf.TensorShape(None)),
-                                                args=(data_dir, feature_names, output_names, adjecency_info,interleave_list, unique_additional_input, training, shuffle))
+                                                args=(
+                                                data_dir, feature_names, output_names, adjecency_info, interleave_list,
+                                                unique_additional_input, training, shuffle))
 
         else:
             ds = tf.data.Dataset.from_generator(generator,
                                                 (types),
                                                 (shapes),
-                                                args=(data_dir, feature_names, output_names, adjecency_info, interleave_list, unique_additional_input, training, shuffle))
+                                                args=(
+                                                data_dir, feature_names, output_names, adjecency_info, interleave_list,
+                                                unique_additional_input, training, shuffle))
 
-        #ds = ds.batch(2)
+        # ds = ds.batch(2)
 
         with tf.name_scope('normalization') as _:
             if not training:
                 ds = ds.map(lambda x: normalization(x, feature_list, output_names, output_normalizations))
             else:
                 ds = ds.map(lambda x, y: normalization(x, feature_list, output_names, output_normalizations, y))
-
 
         ds = ds.repeat()
         with tf.name_scope('create_iterator') as _:
@@ -194,7 +194,7 @@ def r_squared(labels, predictions):
         Predictions of the model
     """
     labels = tf.reshape(labels, [-1])
-    predictions = tf.reshape(predictions,[-1])
+    predictions = tf.reshape(predictions, [-1])
     total_error = tf.reduce_sum(tf.square(labels - tf.reduce_mean(labels)))
     unexplained_error = tf.reduce_sum(tf.square(labels - predictions))
     r_sq = 1.0 - tf.truediv(unexplained_error, total_error)
@@ -214,7 +214,7 @@ class ComnetModel(tf.keras.Model):
         with tf.name_scope('model_initializations') as _:
             for step in self.instances_per_step:
                 for message in step[1]:
-                    #Creation of the message creation models
+                    # Creation of the message creation models
                     with tf.name_scope('message_creation_models') as _:
                         operations = message.message_formation
 
@@ -224,11 +224,11 @@ class ComnetModel(tf.keras.Model):
                                 src_entity = message.source_entity
                                 dst_entity = message.destination_entity
                                 var_name = src_entity + "_to_" + dst_entity + '_message_creation_' + str(counter)
-                                #find out what the input dimension is (need to keep track of previous ones)
+                                # find out what the input dimension is (need to keep track of previous ones)
 
-                                #input_dimension = int(self.input_dimensions[src_entity] + self.input_dimensions[dst_entity] + message.message_formation.num_extra_parameters)
+                                # input_dimension = int(self.input_dimensions[src_entity] + self.input_dimensions[dst_entity] + message.message_formation.num_extra_parameters)
 
-                                #Find out the dimension of the model
+                                # Find out the dimension of the model
                                 input_nn = operation.input
                                 input_dimension = 0
                                 for i in input_nn:
@@ -242,8 +242,8 @@ class ComnetModel(tf.keras.Model):
                                         dimension = getattr(self, i + '_dim')
                                         input_dimension += dimension
 
-
-                                setattr(self, str(var_name) + "_layer_" + str(0), tf.keras.Input(shape=(input_dimension,)))
+                                setattr(self, str(var_name) + "_layer_" + str(0),
+                                        tf.keras.Input(shape=(input_dimension,)))
 
                                 layer_counter = 1
                                 layers = operation.model.layers
@@ -255,43 +255,43 @@ class ComnetModel(tf.keras.Model):
                                         layer_model = l.get_tensorflow_object(l_previous)
                                         setattr(self, str(var_name) + "_layer_" + str(layer_counter), layer_model)
                                     except:
-                                        tf.compat.v1.logging.error('IGNNITION: The layer ' + str(layer_counter) + ' of the message creation neural network in the message passing from ' + message.source_entity + ' to ' + message.destination_entity +
-                                                                ' is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
+                                        tf.compat.v1.logging.error('IGNNITION: The layer ' + str(
+                                            layer_counter) + ' of the message creation neural network in the message passing from ' + message.source_entity + ' to ' + message.destination_entity +
+                                                                   ' is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
                                         sys.exit(1)
 
                                     output_shape = int(layer_model.shape[1])
                                     layer_counter += 1
 
-
-                                #Need to keep track of the output dimension of this one, in case we need it for a new model
+                                # Need to keep track of the output dimension of this one, in case we need it for a new model
                                 if operation.output_name != 'None':
                                     setattr(self, operation.output_name + '_dim', output_shape)
 
-
                                 # Create the actual model. Seems like the final model doesn't recognize this automatically
-                                setattr(self, var_name, tf.keras.Model(inputs=getattr(self, str(var_name) + "_layer_" + str(0)),
-                                                    outputs=getattr(self,str(var_name) + "_layer_" + str(layer_counter - 1)),
-                                                    name=var_name))
-
+                                setattr(self, var_name,
+                                        tf.keras.Model(inputs=getattr(self, str(var_name) + "_layer_" + str(0)),
+                                                       outputs=getattr(self, str(var_name) + "_layer_" + str(
+                                                           layer_counter - 1)),
+                                                       name=var_name))
 
                             counter += 1
 
-                            #DEFINE HERE MORE OPERATIONS FOR MESSAGE CRETION FUNCTION
+                            # DEFINE HERE MORE OPERATIONS FOR MESSAGE CRETION FUNCTION
 
-
-                    #Creation of the update models
+                    # Creation of the update models
                     with tf.name_scope('update_models') as _:
 
-                        #Treat the individual message passings
+                        # Treat the individual message passings
                         if message.type == 'single_source':
                             update_model = message.update
-                            #create the recurrent update models
+                            # create the recurrent update models
                             if update_model.type == "recurrent_nn":
                                 dst_entity = message.destination_entity
                                 recurrent_cell = update_model.model
                                 try:
-                                    recurrent_instance = recurrent_cell.get_tensorflow_object(self.input_dimensions[dst_entity])
-                                    setattr(self, str(dst_entity)+'_update', recurrent_instance)
+                                    recurrent_instance = recurrent_cell.get_tensorflow_object(
+                                        self.input_dimensions[dst_entity])
+                                    setattr(self, str(dst_entity) + '_update', recurrent_instance)
                                 except:
                                     tf.compat.v1.logging.error(
                                         'IGNNITION: The definition of the recurrent cell in message passsing from ' + message.source_entity + ' to ' + message.destination_entity +
@@ -299,7 +299,7 @@ class ComnetModel(tf.keras.Model):
                                     sys.exit(1)
 
 
-                            #create the feed-forward upddate models
+                            # create the feed-forward upddate models
                             else:
                                 model = update_model.model
                                 src_entity = message.source_entity
@@ -308,10 +308,12 @@ class ComnetModel(tf.keras.Model):
 
                                 with tf.name_scope(dst_entity + '_ff_update') as _:
 
-                                    #input is the aggregated hs of the sources concat with the current dest. hs
-                                    input_dimension = int(self.input_dimensions[src_entity]) + int(self.input_dimensions[dst_entity])
+                                    # input is the aggregated hs of the sources concat with the current dest. hs
+                                    input_dimension = int(self.input_dimensions[src_entity]) + int(
+                                        self.input_dimensions[dst_entity])
 
-                                    setattr(self, str(var_name) + "_layer_" + str(0), tf.keras.Input(shape=(input_dimension,)))
+                                    setattr(self, str(var_name) + "_layer_" + str(0),
+                                            tf.keras.Input(shape=(input_dimension,)))
 
                                     layer_counter = 1
                                     layers = model.layers
@@ -320,30 +322,31 @@ class ComnetModel(tf.keras.Model):
                                         l = layers[j]
                                         l_previous = getattr(self, str(var_name) + "_layer_" + str(layer_counter - 1))
                                         try:
-                                            #if it's the last layer, set the output units to 1
-                                            if j == n_layers -1:
-                                                layer = l.get_tensorflow_object_last(l_previous, int(self.input_dimensions[dst_entity]))
+                                            # if it's the last layer, set the output units to 1
+                                            if j == n_layers - 1:
+                                                layer = l.get_tensorflow_object_last(l_previous, int(
+                                                    self.input_dimensions[dst_entity]))
                                             else:
                                                 layer = l.get_tensorflow_object(l_previous)
 
                                             setattr(self, str(var_name) + "_layer_" + str(layer_counter), layer)
                                         except:
                                             tf.compat.v1.logging.error(
-                                                'IGNNITION: The layer ' + str(layer_counter) + ' of the update neural network in message passing from ' + message.source_entity + ' to ' + message.destination_entity +
+                                                'IGNNITION: The layer ' + str(
+                                                    layer_counter) + ' of the update neural network in message passing from ' + message.source_entity + ' to ' + message.destination_entity +
                                                 ' is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
                                             sys.exit(1)
 
                                         layer_counter += 1
 
-                                    #Create the final ff-model
+                                    # Create the final ff-model
                                     setattr(self, var_name,
                                             tf.keras.Model(inputs=getattr(self, str(var_name) + "_layer_" + str(0)),
-                                                           outputs=getattr(self,str(var_name) + "_layer_" + str(layer_counter - 1)),
-                                                           name=var_name ))
+                                                           outputs=getattr(self, str(var_name) + "_layer_" + str(
+                                                               layer_counter - 1)),
+                                                           name=var_name))
 
-
-
-            #Create the update models for the combined mp
+            # Create the update models for the combined mp
             combined_models = model_info.get_combined_mp_options()
             for step in combined_models:
                 messages_to_combine = combined_models[step]
@@ -353,31 +356,30 @@ class ComnetModel(tf.keras.Model):
 
                     if model_op.type == 'recurrent_nn':
                         try:
-                            #obtain the recurrent_models
+                            # obtain the recurrent_models
                             recurrent_cell = model_op.model
                             recurrent_instance = recurrent_cell.get_tensorflow_object(self.input_dimensions[dst_entity])
                             setattr(self, str(dst_entity) + '_combined_update', recurrent_instance)
 
                         except:
                             tf.compat.v1.logging.error(
-                                'IGNNITION: The definition of the recurrent cell in the combined message passsing with destination entity ' + '"' + dst_entity + '"' )
+                                'IGNNITION: The definition of the recurrent cell in the combined message passsing with destination entity ' + '"' + dst_entity + '"')
                             sys.exit(1)
 
-                    else:   #if it's a feed_forward
+                    else:  # if it's a feed_forward
                         try:
                             dst_entity = mp.destination_entity
 
-                            #need to calculate the input size (size of the messages)    #DO THIS WHEN CREATING THE CLASS?
+                            # need to calculate the input size (size of the messages)    #DO THIS WHEN CREATING THE CLASS?
                             sources = model_info.get_combined_mp_sources(dst_entity, step)
-                            if mp.message_combination == 'concat' and mp.concat_axis ==2:   #if we are concatenating by message
+                            if mp.message_combination == 'concat' and mp.concat_axis == 2:  # if we are concatenating by message
                                 message_dimensionality = 0
                                 for s in sources:
                                     message_dimensionality += int(self.input_dimensions[s])
 
 
-                            else:   #all the messages are the same size. So take the first for instance
+                            else:  # all the messages are the same size. So take the first for instance
                                 message_dimensionality = int(self.input_dimensions[sources[0]])
-
 
                             var_name = dst_entity + "_ff_combined_update"
 
@@ -425,53 +427,57 @@ class ComnetModel(tf.keras.Model):
                                 'IGNNITION: The definition of the neural network in the combined message passsing with destination entity ' + '"' + dst_entity + '"')
                             sys.exit(1)
 
-
-            #Create the several readout models
+            # Create the several readout models
             readout_operations = model_info.get_readout_operations()
             counter = 0
             for operation in readout_operations:
                 if operation.type == "predict" or operation.type == 'neural_network':
                     with tf.name_scope("readout_architecture"):
 
-                        #input_dimension = int(self.input_dimensions[operation.input[0]])
+                        # input_dimension = int(self.input_dimensions[operation.input[0]])
                         input_dimension = 0
                         for i in operation.input:
                             input_dimension += int(self.input_dimensions[i])
 
-                        setattr(self, 'readout_model' + str(counter)+"_layer_"+str(0), tf.keras.Input(shape = (input_dimension,)))
+                        setattr(self, 'readout_model' + str(counter) + "_layer_" + str(0),
+                                tf.keras.Input(shape=(input_dimension,)))
 
                         layer_counter = 1
                         layers = operation.architecture.layers
                         for l in layers:
-                            l_previous = getattr(self, 'readout_model' + str(counter)+"_layer_"+str(layer_counter - 1))
+                            l_previous = getattr(self,
+                                                 'readout_model' + str(counter) + "_layer_" + str(layer_counter - 1))
                             try:
                                 layer = l.get_tensorflow_object(l_previous)
-                                setattr(self, 'readout_model' + str(counter)+"_layer_"+str(layer_counter), layer)
+                                setattr(self, 'readout_model' + str(counter) + "_layer_" + str(layer_counter), layer)
                             except:
                                 tf.compat.v1.logging.error(
-                                    'IGNNITION: The layer ' + str(layer_counter) + ' of the readout is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
+                                    'IGNNITION: The layer ' + str(
+                                        layer_counter) + ' of the readout is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
                                 sys.exit(1)
 
                             layer_counter += 1
 
-                        #Create the actual model with all the previous layers.
-                        model = tf.keras.Model(inputs=getattr(self,'readout_model' + str(counter)+"_layer_"+str(0)), outputs=getattr(self, 'readout_model' + str(counter)+"_layer_"+str(layer_counter -1)))
-                        setattr(self, 'readout_model_' +str(counter),model)
+                        # Create the actual model with all the previous layers.
+                        model = tf.keras.Model(
+                            inputs=getattr(self, 'readout_model' + str(counter) + "_layer_" + str(0)),
+                            outputs=getattr(self, 'readout_model' + str(counter) + "_layer_" + str(layer_counter - 1)))
+                        setattr(self, 'readout_model_' + str(counter), model)
 
-
-                    #save the dimensions of the output
+                    # save the dimensions of the output
                     if operation.type == 'neural_network':
                         self.input_dimensions[operation.output_name] = model.layers[-1].output.shape[1]
 
 
                 elif operation.type == 'pooling':
-                    if operation.type_pooling == 'sum' or operation.type_pooling=='max' or operation.type_pooling=='mean':
+                    if operation.type_pooling == 'sum' or operation.type_pooling == 'max' or operation.type_pooling == 'mean':
                         dimensionality = self.input_dimensions[operation.input[0]]
 
                     else:
                         dimensionality = 1
 
-                    self.input_dimensions[operation.output_name] = dimensionality   #add the new dimensionality to the input_dimensions tensor
+                    self.input_dimensions[
+                        operation.output_name] = dimensionality  # add the new dimensionality to the input_dimensions tensor
 
 
                 elif operation.type == 'product':
@@ -481,10 +487,7 @@ class ComnetModel(tf.keras.Model):
                     self.input_dimensions[operation.output_name[0]] = self.input_dimensions[operation.input[0]]
                     self.input_dimensions[operation.output_name[1]] = self.input_dimensions[operation.input[1]]
 
-
-
                 counter += 1
-
 
     def call(self, input, training=False):
         """
@@ -498,42 +501,40 @@ class ComnetModel(tf.keras.Model):
         # HIDDEN STATE CREATION
         entities = model_info.entities
 
-        #Initialize all the hidden states for all the nodes.
+        # Initialize all the hidden states for all the nodes.
         with tf.name_scope('hidden_states') as _:
             for entity in entities:
                 name = entity.name
 
-                with tf.name_scope('hidden_state_'+str(name)) as _:
+                with tf.name_scope('hidden_state_' + str(name)) as _:
                     dim = entity.hidden_state_dimension
 
                     first = True
                     features = entity.features
                     total = 0
 
-                    #concatenate all the features
+                    # concatenate all the features
                     for feature in features:
                         name_feature = feature.name
                         total += feature.size
 
                         with tf.name_scope('add_feature_' + str(name_feature)) as _:
                             size = feature.size
-                            input[name_feature] = tf.reshape(input[name_feature], tf.stack([input['num_'+str(name)], size]))
+                            input[name_feature] = tf.reshape(input[name_feature],
+                                                             tf.stack([input['num_' + str(name)], size]))
 
                             if first:
                                 state = input[name_feature]
                                 first = False
                             else:
-                                state = tf.concat([state,input[name_feature]], axis=1, name="add_"+name_feature)
-
+                                state = tf.concat([state, input[name_feature]], axis=1, name="add_" + name_feature)
 
                     shape = tf.stack([input['num_' + name], dim - total], axis=0)  # shape (2,)
 
-                    #add 0s until reaching the given dimension
+                    # add 0s until reaching the given dimension
                     with tf.name_scope('add_zeros_to_' + str(name)) as _:
-                        state = tf.concat([state,tf.zeros(shape)], axis=1, name="add_zeros_"+name)
-                        setattr(self, str(name)+"_state", state)
-
-
+                        state = tf.concat([state, tf.zeros(shape)], axis=1, name="add_zeros_" + name)
+                        setattr(self, str(name) + "_state", state)
 
         # -----------------------------------------------------------------------------------
         # MESSAGE PASSING PHASE
@@ -541,37 +542,40 @@ class ComnetModel(tf.keras.Model):
 
             for j in range(model_info.get_mp_iterations()):
 
-                 with tf.name_scope('iteration_'+str(j)) as _:
+                with tf.name_scope('iteration_' + str(j)) as _:
 
-                     for step in self.instances_per_step:
-                         step_name = step[0]
+                    for step in self.instances_per_step:
+                        step_name = step[0]
 
-                         #given one message from a given step
-                         for message in step[1]:
-                             src_name = message.source_entity
-                             dst_name = message.destination_entity
+                        # given one message from a given step
+                        for message in step[1]:
+                            src_name = message.source_entity
+                            dst_name = message.destination_entity
 
-                             with tf.name_scope(src_name + 's_to_' + dst_name + 's') as _:
+                            with tf.name_scope(src_name + 's_to_' + dst_name + 's') as _:
 
-                                 #create the messages
-                                 sources = input['src_' + message.adj_vector]
-                                 destinations = input['dst_' + message.adj_vector]
-                                 states = getattr(self, str(src_name) + '_state')
-                                 num_dst = input['num_' + dst_name]
-                                 messages = tf.gather(states,sources)  # initially all the messages are the source hs itself
-                                 src_hs = tf.gather(states,sources)   # obtain each of the source hs for each adj of the mp
-                                 dst_hs = getattr(self, dst_name + '_state')
+                                # create the messages
+                                sources = input['src_' + message.adj_vector]
+                                destinations = input['dst_' + message.adj_vector]
+                                states = getattr(self, str(src_name) + '_state')
+                                num_dst = input['num_' + dst_name]
+                                messages = tf.gather(states,
+                                                     sources)  # initially all the messages are the source hs itself
+                                src_hs = tf.gather(states,
+                                                   sources)  # obtain each of the source hs for each adj of the mp
+                                dst_hs = getattr(self, dst_name + '_state')
 
-                                 #use a ff if so needed
-                                 with tf.name_scope('create_message_' + src_name + '_to_' + dst_name) as _:
-                                     message_creation_models = message.message_formation
+                                # use a ff if so needed
+                                with tf.name_scope('create_message_' + src_name + '_to_' + dst_name) as _:
+                                    message_creation_models = message.message_formation
 
-                                     counter = 0
-                                     for model in message_creation_models:
+                                    counter = 0
+                                    for model in message_creation_models:
 
                                         if model.type == 'feed_forward_nn':
                                             with tf.name_scope('apply_nn_' + str(counter)) as _:
-                                                var_name = src_name + "_to_" + dst_name + '_message_creation_' + str(counter)  #careful. This name could overlap with another model
+                                                var_name = src_name + "_to_" + dst_name + '_message_creation_' + str(
+                                                    counter)  # careful. This name could overlap with another model
                                                 message_creator = getattr(self, var_name)
                                                 first = True
                                                 with tf.name_scope('create_input') as _:
@@ -582,7 +586,7 @@ class ComnetModel(tf.keras.Model):
                                                                 first = False
 
                                                             else:
-                                                                input_nn = tf.concat([input_nn, src_hs], axis = 1)
+                                                                input_nn = tf.concat([input_nn, src_hs], axis=1)
 
                                                         elif i == 'hs_dest':
                                                             h_states_dest = tf.gather(dst_hs, destinations)
@@ -596,7 +600,8 @@ class ComnetModel(tf.keras.Model):
 
 
                                                         elif i == 'edge_params':
-                                                            edge_params = tf.cast(input['params_' + message.adj_vector], tf.float32)
+                                                            edge_params = tf.cast(input['params_' + message.adj_vector],
+                                                                                  tf.float32)
 
                                                             if first:
                                                                 input_nn = edge_params
@@ -604,7 +609,7 @@ class ComnetModel(tf.keras.Model):
                                                             else:
                                                                 input_nn = tf.concat([input_nn, edge_params], axis=1)
 
-                                                        else:   #it is the output of a previous operation
+                                                        else:  # it is the output of a previous operation
                                                             other_tensor = getattr(self, i + '_var')
                                                             if first:
                                                                 input_nn = other_tensor
@@ -612,309 +617,324 @@ class ComnetModel(tf.keras.Model):
                                                             else:
                                                                 input_nn = tf.concat([input_nn, other_tensor], axis=1)
 
-
                                                 with tf.name_scope('create_message') as _:
                                                     result = message_creator(input_nn)
                                                     if model.output_name != 'None':
                                                         setattr(self, model.output_name + '_var', result)
 
-                                                    messages = result   #by default, the message is always the result from the last operation
+                                                    messages = result  # by default, the message is always the result from the last operation
 
+                                        counter += 1
 
-                                        counter +=1
+                                # treating the individual message passings
+                                if message.type == "single_source":
 
+                                    # -----------------------------------------
+                                    # aggregation
 
-                                 #treating the individual message passings
-                                 if message.type == "single_source":
+                                    aggregation = message.aggregation
 
-                                     #-----------------------------------------
-                                     #aggregation
+                                    # sum aggregation
+                                    if aggregation == 'sum':
+                                        with tf.name_scope("aggregate_sum_" + src_name) as _:
+                                            source_input = tf.math.unsorted_segment_sum(messages, destinations, num_dst)
 
-                                     aggregation = message.aggregation
+                                    # ordered aggregation
+                                    elif aggregation == 'ordered':
+                                        with tf.name_scope("aggregate_ordered_" + src_name) as _:
+                                            seq = input['seq_' + src_name + '_' + dst_name]
 
-                                     #sum aggregation
-                                     if aggregation == 'sum':
-                                         with tf.name_scope("aggregate_sum_" + src_name) as _:
-                                             source_input = tf.math.unsorted_segment_sum(messages, destinations, num_dst)
+                                            ids = tf.stack([destinations, seq],
+                                                           axis=1)  # stack of pairs of the path value and its sequence value
 
-                                     #ordered aggregation
-                                     elif aggregation == 'ordered':
-                                         with tf.name_scope("aggregate_ordered_" + src_name) as _:
-                                             seq = input['seq_' + src_name + '_' + dst_name]
+                                            max_len = tf.reduce_max(seq) + 1
 
-                                             ids = tf.stack([destinations, seq],axis=1)  # stack of pairs of the path value and its sequence value
+                                            shape = tf.stack([num_dst, max_len, int(self.input_dimensions[
+                                                                                        src_name])])  # shape(n_paths, max_len_path, dimension_link)
 
-                                             max_len = tf.reduce_max(seq) + 1
+                                            lens = tf.math.unsorted_segment_sum(tf.ones_like(destinations),
+                                                                                destinations,
+                                                                                num_dst)
 
-                                             shape = tf.stack([num_dst, max_len, int(self.input_dimensions[src_name])])  # shape(n_paths, max_len_path, dimension_link)
+                                            source_input = tf.scatter_nd(ids, messages, shape)
 
-                                             lens = tf.math.unsorted_segment_sum(tf.ones_like(destinations),
-                                                                                 destinations,
-                                                                                 num_dst)
 
-                                             source_input = tf.scatter_nd(ids, messages, shape)
+                                    # attention aggreagation
+                                    elif aggregation == 'attention':
+                                        with tf.name_scope("attention_mechanism_" + src_name) as _:
+                                            # obtain the source states  (NxF1)
+                                            h_src = tf.identity(messages)
+                                            F1 = int(self.input_dimensions[message.source_entity])
 
-                                     #attention aggreagation
-                                     elif aggregation == 'attention':
-                                         with tf.name_scope("attention_mechanism_" + src_name) as _:
-                                             #obtain the source states  (NxF1)
-                                             h_src = tf.identity(messages)
-                                             F1 = int(self.input_dimensions[message.source_entity])
+                                            # obtain the destination states  (NxF2)
+                                            states_dest = getattr(self, str(dst_name) + '_state')
+                                            h_dst = tf.gather(states_dest, destinations)
+                                            F2 = int(self.input_dimensions[message.destination_entity])
 
-                                             #obtain the destination states  (NxF2)
-                                             states_dest = getattr(self, str(dst_name) + '_state')
-                                             h_dst = tf.gather(states_dest, destinations)
-                                             F2 = int(self.input_dimensions[message.destination_entity])
+                                            # new number of features
+                                            F_ = F1
 
-                                             #new number of features
-                                             F_ = F1
+                                            # now apply a linear transformation for the sources (NxF1 -> NxF')
+                                            kernel1 = self.add_weight(shape=(F1, F_))
+                                            transformed_states_sources = K.dot(h_src,
+                                                                               kernel1)  # NxF'   (W h_i for every source)
 
-                                             #now apply a linear transformation for the sources (NxF1 -> NxF')
-                                             kernel1 = self.add_weight(shape=(F1, F_))
-                                             transformed_states_sources = K.dot(h_src, kernel1)  # NxF'   (W h_i for every source)
+                                            # now apply a linear transformation for the destinations (NxF2 -> NxF')
+                                            kernel2 = self.add_weight(shape=(F2, F_))
+                                            transformed_states_dest = K.dot(h_dst,
+                                                                            kernel2)  # NxF'   (W h_i for every dst)
 
-                                             # now apply a linear transformation for the destinations (NxF2 -> NxF')
-                                             kernel2 = self.add_weight(shape=(F2, F_))
-                                             transformed_states_dest = K.dot(h_dst, kernel2)  # NxF'   (W h_i for every dst)
+                                            # concat source and dest for each edge
+                                            attention_input = tf.concat(
+                                                [transformed_states_sources, transformed_states_dest], axis=1)  # Nx2F'
 
-                                             # concat source and dest for each edge
-                                             attention_input = tf.concat([transformed_states_sources, transformed_states_dest], axis = 1)   #Nx2F'
+                                            # apply the attention weight vector    (N x 2F_) * (2F_ x 1) = (N x 1)
+                                            attn_kernel = self.add_weight(shape=(2 * F_, 1))
+                                            attention_input = K.dot(attention_input, attn_kernel)  # Nx1
 
-                                             #apply the attention weight vector    (N x 2F_) * (2F_ x 1) = (N x 1)
-                                             attn_kernel = self.add_weight(shape=(2*F_, 1))
-                                             attention_input = K.dot(attention_input, attn_kernel)  #Nx1
+                                            # apply the non linearity
+                                            attention_input = tf.keras.layers.LeakyReLU(alpha=0.2)(attention_input)
 
+                                            # reshape into a matrix where every row is a destination node and every column is one of its neighbours
+                                            seq = input['seq_' + src_name + '_' + dst_name]
+                                            ids = tf.stack([destinations, seq], axis=1)
+                                            max_len = tf.reduce_max(seq) + 1
+                                            shape = tf.stack([num_dst, max_len, 1])
+                                            aux = tf.scatter_nd(ids, attention_input, shape)
 
-                                             #apply the non linearity
-                                             attention_input = tf.keras.layers.LeakyReLU(alpha=0.2)(attention_input)
+                                            # apply softmax to it (by rows)
+                                            coeffients = tf.keras.activations.softmax(aux, axis=0)
 
-                                             #reshape into a matrix where every row is a destination node and every column is one of its neighbours
-                                             seq = input['seq_' + src_name + '_' + dst_name]
-                                             ids = tf.stack([destinations, seq],axis=1)
-                                             max_len = tf.reduce_max(seq) + 1
-                                             shape = tf.stack([num_dst, max_len, 1])
-                                             aux = tf.scatter_nd(ids, attention_input, shape)
+                                            # sum them all together using the coefficients (average)
+                                            final_coeffitients = tf.gather_nd(coeffients, ids)
+                                            weighted_inputs = messages * final_coeffitients
+                                            source_input = tf.math.unsorted_segment_sum(weighted_inputs, destinations,
+                                                                                        num_dst)
 
+                                    # convolutional aggregation
+                                    elif message.aggregation == 'convolutional':
+                                        print("Here we would do a convolution")
 
-                                             #apply softmax to it (by rows)
-                                             coeffients = tf.keras.activations.softmax(aux, axis = 0)
+                                    # ---------------------------------------
+                                    # update
 
-                                             #sum them all together using the coefficients (average)
-                                             final_coeffitients = tf.gather_nd(coeffients, ids)
-                                             weighted_inputs = messages * final_coeffitients
-                                             source_input = tf.math.unsorted_segment_sum(weighted_inputs, destinations,num_dst)
+                                    update_model = message.update
 
-                                     #convolutional aggregation
-                                     elif message.aggregation == 'convolutional':
-                                         print("Here we would do a convolution")
+                                    # recurrent update
+                                    if update_model.type == "recurrent_nn":
+                                        aggregation = message.aggregation
 
+                                        # if the aggregation was a sum
+                                        if aggregation == 'sum' or aggregation == 'attention' or aggregation == 'convolutional':
+                                            with tf.name_scope("update_sum_" + dst_name) as _:
+                                                old_state = getattr(self, str(dst_name) + '_state')
+                                                model = getattr(self, str(dst_name) + '_update')
 
-                                     #---------------------------------------
-                                     #update
+                                                new_state, _ = model(source_input, [old_state])
+                                                setattr(self, str(dst_name) + '_state', new_state)
 
-                                     update_model = message.update
 
-                                     #recurrent update
-                                     if update_model.type == "recurrent_nn":
-                                         aggregation = message.aggregation
+                                        # if the aggregation was ordered
+                                        elif aggregation == 'ordered':
+                                            with tf.name_scope("update_ordered_" + dst_name) as _:
+                                                old_state = getattr(self, str(dst_name) + '_state')
+                                                model = getattr(self, str(dst_name) + '_update')
+                                                gru_rnn = tf.keras.layers.RNN(model, return_sequences=True,
+                                                                              return_state=True,
+                                                                              name=str(dst_name) + '_update')
+                                                outputs, new_state = gru_rnn(inputs=source_input,
+                                                                             initial_state=old_state,
+                                                                             mask=tf.sequence_mask(lens))
+                                                setattr(self, str(dst_name) + '_state', new_state)
 
-                                         #if the aggregation was a sum
-                                         if aggregation == 'sum' or aggregation == 'attention' or aggregation=='convolutional':
-                                             with tf.name_scope("update_sum_" + dst_name) as _:
-                                                 old_state = getattr(self, str(dst_name)+'_state')
-                                                 model = getattr(self,str(dst_name)+'_update')
-
-                                                 new_state, _ = model(source_input, [old_state])
-                                                 setattr(self, str(dst_name)+'_state', new_state)
-
-
-                                         #if the aggregation was ordered
-                                         elif aggregation == 'ordered':
-                                             with tf.name_scope("update_ordered_" + dst_name) as _:
-                                                 old_state = getattr(self, str(dst_name) + '_state')
-                                                 model = getattr(self, str(dst_name) + '_update')
-                                                 gru_rnn = tf.keras.layers.RNN(model, return_sequences=True,
-                                                                               return_state=True, name = str(dst_name)+'_update')
-                                                 outputs, new_state = gru_rnn(inputs=source_input, initial_state=old_state,mask=tf.sequence_mask(lens))
-                                                 setattr(self, str(dst_name) + '_state', new_state)
-
-
-                                     #feed-forward update:
-                                     #restriction: It can only be used if the aggreagation was ordered.
-                                     elif update_model.type == 'feed_forward_nn':
-                                         update = getattr(self, dst_name + '_ff_combined_update')
-                                         current_hs = getattr(self, dst_name + '_state')
-
-                                         # now we need to obtain for each adjacency the concatenation of the source and the destination
-                                         update_input = tf.concat([source_input, current_hs], axis = 1)
-                                         new_state = update(update_input)
-                                         setattr(self, str(dst_name) + '_state', new_state) #update new state
-
-
-
-                                #Treat the combined message passings' aggregation. Only pre-processing
-                                 else:
-
-                                     #combination aggreagation
-                                     if message.aggregation == 'combination':
-                                         with tf.name_scope('combination_preprocessing' + src_name) as _:
-                                             seq = input['seq_' + src_name + '_' + dst_name]
-
-                                             ids = tf.stack([destinations, seq],axis=1)
-
-                                             lens = tf.math.segment_sum(data=tf.ones_like(destinations),segment_ids=destinations)
-
-                                             max_len = tf.reduce_max(seq) + 1
-
-                                             shape = tf.stack([num_dst, max_len, int(self.input_dimensions[src_name])])
-
-                                             source_input = tf.scatter_nd(ids, messages, shape) #find the input ordering it by sequence
-
-                                             setattr(self, str(src_name) + '_to_' + str(dst_name) +  '_combined', source_input)
-
-                                             setattr(self, 'lens_' + str(src_name), lens)
-
-
-
-                         #---------------------------------
-                         #Combined message passings
-
-                         #update for each of the combined message passing
-                         combined_models = model_info.get_combined_mp_options() #improve
-
-                         if step_name in combined_models:
-                             messages_to_combine = combined_models[step_name]
-                             for message in messages_to_combine:
-                                 dst_name = message.destination_entity
-                                 #entities that are senders in this message passing
-                                 combine_sources = model_info.get_combined_mp_sources(dst_name,step_name)
-
-                                 #concatenation combination.
-                                 with tf.name_scope("combined_mp_to" + dst_name) as _:
-
-                                     if message.message_combination == 'concat':
-                                         with tf.name_scope("concatenate_input_of_" + dst_name) as _:
-
-                                             first = True
-                                             for src_name in combine_sources:
-                                                 len = getattr(self, 'lens_' + str(src_name))  # this is the vector with lens of each destination
-
-                                                 with tf.name_scope("concat_" + src_name) as _:
-                                                     #obtain the new states. Only one message from a certain entity type to each destination node
-                                                     state = getattr(self, str(src_name) + '_to_' + str(dst_name) + '_combined')    #destinations x max_num_sources x dim_src
-
-                                                     if first:
-                                                         sources_input = state
-                                                         first = False
-                                                         final_len = len
-                                                     else:
-                                                         #concatenate, so every node receives only one message
-                                                         #axis = 1 is to concat all the messages for a dest. axis=2 is to concat by message
-                                                         sources_input = tf.concat([sources_input, state], axis=message.concat_axis)
-
-                                                         if message.concat_axis == 1:   #if axis=2, then the number of messages received is the same. Simply create bigger messages
-                                                             final_len += len
-
-                                     #interleave combination
-                                     elif message.message_combination == 'interleave':
-                                         with tf.name_scope('interleave_' + dst_name) as _:
-
-                                             first = True
-                                             for src_name in combine_sources:
-                                                 with tf.name_scope('add_' + src_name) as _:
-                                                     len = getattr(self, 'lens_' + str(src_name))   #this is the vector with lens of each destination
-
-                                                     s = getattr(self, str(src_name) + '_to_' + str(dst_name) +  '_combined')  #input
-
-                                                     #form the pattern to be used for the interleave
-                                                     indices_source = input["indices_" + src_name + '_to_' + dst_name]
-                                                     if first:
-                                                         first = False
-                                                         sources_input = s  # destinations x max_of_sources_to_dest x dim_source
-                                                         indices = indices_source
-                                                         final_len = len
-                                                     else:
-                                                         sources_input = tf.concat([sources_input, s], axis = 1)   # destinations x max_of_sources_to_dest_concat x dim_source
-                                                         indices = tf.stack([indices, indices_source], axis = 0)
-                                                         final_len = tf.math.add(final_len, len)    #check this len? We just sum the max of each of them?
-
-                                             #place each of the messages into the right spot in the sequence defined
-                                             with tf.name_scope('order_sources_from_' + dst_name) as _:
-                                                 sources_input = tf.transpose(sources_input, perm =[1,0,2]) # destinations x max_of_sources_to_dest_concat x dim_source ->  (max_of_sources_to_dest_concat x destinations x dim_source)
-                                                 indices = tf.reshape(indices, [-1, 1])
-
-                                                 sources_input = tf.scatter_nd(indices, sources_input, tf.shape(sources_input, out_type=tf.int64))
-
-                                                 sources_input = tf.transpose(sources_input, perm=[1, 0, 2])    #(max_of_sources_to_dest_concat x destinations x dim_source) -> destinations x max_of_sources_to_dest_concat x dim_source
-
-
-                                     elif message.message_combination == 'aggregate_together':
-                                         with tf.name_scope('aggregate_together' + dst_name) as _:
-
-                                             for src_name in combine_sources:
-                                                 sources = input['src_' + message.adj_vector]
-                                                 destinations = input['dst_' + message.adj_vector]
-
-                                                 states = getattr(self, str(src_name) + '_state')
-                                                 s = tf.gather(states, sources)
-
-                                                 # obtain the overall input of each of the destinations
-                                                 if first:
-                                                     sources_input = s
-                                                     destinations_indices = d
-                                                     first = False
-                                                 else:
-                                                     sources_input = tf.concat([sources_input, s], axis=0)
-                                                     destinations_indices = tf.concat([destinations_indices, destinations], axis=0)
-
-                                             #each of the states to combine is a tensor of shape num_dest x max_len x dimension_src
-                                             #if message.combined_aggregation == 'sum':
-                                             #    final_input = tf.unsorted_segment_sum()
-
-                                             #elif message.combined_aggregation == 'attention':
-
-
-
-
-                                     #here we do the combined update
-                                     update_model = message.update
-                                     if update_model.type == "recurrent_nn":
-                                         with tf.name_scope('recurrent_update_' + dst_name) as _:
-                                             old_state = getattr(self, str(dst_name) + '_state')
-                                             model = getattr(self, str(dst_name) + '_combined_update')
-
-                                             gru_rnn = tf.keras.layers.RNN(model, return_sequences=True,return_state=True)
-                                             outputs, new_state = gru_rnn(inputs=sources_input, initial_state=old_state,mask=tf.sequence_mask(final_len))
-
-                                             setattr(self, str(dst_name) + '_state', new_state)
-
-
-                                     else:  #if feed_forward. ASK
-                                         with tf.name_scope('ff_update_' + dst_name) as _:
-                                             try:
-                                                 update = getattr(self, dst_name + '_ff_combined_update')
-                                                 current_hs = getattr(self, dst_name + '_state')
-
-                                                 # now we need to obtain for each adjacency the concatenation of the source and the destination
-                                                 update_input = tf.concat([sources_input, current_hs], axis=1)
-                                                 new_state = update(update_input)
-                                                 setattr(self, str(dst_name) + '_state', new_state)  # update new state
-
-                                             except:
-                                                 tf.compat.v1.logging.error(
-                                                     'IGNNITION:  This functionality is not yet fully supported')
-                                                 sys.exit(1)
-
+
+                                    # feed-forward update:
+                                    # restriction: It can only be used if the aggreagation was ordered.
+                                    elif update_model.type == 'feed_forward_nn':
+                                        update = getattr(self, dst_name + '_ff_combined_update')
+                                        current_hs = getattr(self, dst_name + '_state')
+
+                                        # now we need to obtain for each adjacency the concatenation of the source and the destination
+                                        update_input = tf.concat([source_input, current_hs], axis=1)
+                                        new_state = update(update_input)
+                                        setattr(self, str(dst_name) + '_state', new_state)  # update new state
+
+
+
+                                # Treat the combined message passings' aggregation. Only pre-processing
+                                else:
+
+                                    # combination aggreagation
+                                    if message.aggregation == 'combination':
+                                        with tf.name_scope('combination_preprocessing' + src_name) as _:
+                                            seq = input['seq_' + src_name + '_' + dst_name]
+
+                                            ids = tf.stack([destinations, seq], axis=1)
+
+                                            lens = tf.math.segment_sum(data=tf.ones_like(destinations),
+                                                                       segment_ids=destinations)
+
+                                            max_len = tf.reduce_max(seq) + 1
+
+                                            shape = tf.stack([num_dst, max_len, int(self.input_dimensions[src_name])])
+
+                                            source_input = tf.scatter_nd(ids, messages,
+                                                                         shape)  # find the input ordering it by sequence
+
+                                            setattr(self, str(src_name) + '_to_' + str(dst_name) + '_combined',
+                                                    source_input)
+
+                                            setattr(self, 'lens_' + str(src_name), lens)
+
+                        # ---------------------------------
+                        # Combined message passings
+
+                        # update for each of the combined message passing
+                        combined_models = model_info.get_combined_mp_options()  # improve
+
+                        if step_name in combined_models:
+                            messages_to_combine = combined_models[step_name]
+                            for message in messages_to_combine:
+                                dst_name = message.destination_entity
+                                # entities that are senders in this message passing
+                                combine_sources = model_info.get_combined_mp_sources(dst_name, step_name)
+
+                                # concatenation combination.
+                                with tf.name_scope("combined_mp_to" + dst_name) as _:
+
+                                    if message.message_combination == 'concat':
+                                        with tf.name_scope("concatenate_input_of_" + dst_name) as _:
+
+                                            first = True
+                                            for src_name in combine_sources:
+                                                len = getattr(self, 'lens_' + str(
+                                                    src_name))  # this is the vector with lens of each destination
+
+                                                with tf.name_scope("concat_" + src_name) as _:
+                                                    # obtain the new states. Only one message from a certain entity type to each destination node
+                                                    state = getattr(self, str(src_name) + '_to_' + str(
+                                                        dst_name) + '_combined')  # destinations x max_num_sources x dim_src
+
+                                                    if first:
+                                                        sources_input = state
+                                                        first = False
+                                                        final_len = len
+                                                    else:
+                                                        # concatenate, so every node receives only one message
+                                                        # axis = 1 is to concat all the messages for a dest. axis=2 is to concat by message
+                                                        sources_input = tf.concat([sources_input, state],
+                                                                                  axis=message.concat_axis)
+
+                                                        if message.concat_axis == 1:  # if axis=2, then the number of messages received is the same. Simply create bigger messages
+                                                            final_len += len
+
+                                    # interleave combination
+                                    elif message.message_combination == 'interleave':
+                                        with tf.name_scope('interleave_' + dst_name) as _:
+
+                                            first = True
+                                            for src_name in combine_sources:
+                                                with tf.name_scope('add_' + src_name) as _:
+                                                    len = getattr(self, 'lens_' + str(
+                                                        src_name))  # this is the vector with lens of each destination
+
+                                                    s = getattr(self, str(src_name) + '_to_' + str(
+                                                        dst_name) + '_combined')  # input
+
+                                                    # form the pattern to be used for the interleave
+                                                    indices_source = input["indices_" + src_name + '_to_' + dst_name]
+                                                    if first:
+                                                        first = False
+                                                        sources_input = s  # destinations x max_of_sources_to_dest x dim_source
+                                                        indices = indices_source
+                                                        final_len = len
+                                                    else:
+                                                        sources_input = tf.concat([sources_input, s],
+                                                                                  axis=1)  # destinations x max_of_sources_to_dest_concat x dim_source
+                                                        indices = tf.stack([indices, indices_source], axis=0)
+                                                        final_len = tf.math.add(final_len,
+                                                                                len)  # check this len? We just sum the max of each of them?
+
+                                            # place each of the messages into the right spot in the sequence defined
+                                            with tf.name_scope('order_sources_from_' + dst_name) as _:
+                                                sources_input = tf.transpose(sources_input, perm=[1, 0,
+                                                                                                  2])  # destinations x max_of_sources_to_dest_concat x dim_source ->  (max_of_sources_to_dest_concat x destinations x dim_source)
+                                                indices = tf.reshape(indices, [-1, 1])
+
+                                                sources_input = tf.scatter_nd(indices, sources_input,
+                                                                              tf.shape(sources_input,
+                                                                                       out_type=tf.int64))
+
+                                                sources_input = tf.transpose(sources_input, perm=[1, 0,
+                                                                                                  2])  # (max_of_sources_to_dest_concat x destinations x dim_source) -> destinations x max_of_sources_to_dest_concat x dim_source
+
+
+                                    elif message.message_combination == 'aggregate_together':
+                                        with tf.name_scope('aggregate_together' + dst_name) as _:
+
+                                            for src_name in combine_sources:
+                                                sources = input['src_' + message.adj_vector]
+                                                destinations = input['dst_' + message.adj_vector]
+
+                                                states = getattr(self, str(src_name) + '_state')
+                                                s = tf.gather(states, sources)
+
+                                                # obtain the overall input of each of the destinations
+                                                if first:
+                                                    sources_input = s
+                                                    destinations_indices = d
+                                                    first = False
+                                                else:
+                                                    sources_input = tf.concat([sources_input, s], axis=0)
+                                                    destinations_indices = tf.concat(
+                                                        [destinations_indices, destinations], axis=0)
+
+                                            # each of the states to combine is a tensor of shape num_dest x max_len x dimension_src
+                                            # if message.combined_aggregation == 'sum':
+                                            #    final_input = tf.unsorted_segment_sum()
+
+                                            # elif message.combined_aggregation == 'attention':
+
+                                    # here we do the combined update
+                                    update_model = message.update
+                                    if update_model.type == "recurrent_nn":
+                                        with tf.name_scope('recurrent_update_' + dst_name) as _:
+                                            old_state = getattr(self, str(dst_name) + '_state')
+                                            model = getattr(self, str(dst_name) + '_combined_update')
+
+                                            gru_rnn = tf.keras.layers.RNN(model, return_sequences=True,
+                                                                          return_state=True)
+                                            outputs, new_state = gru_rnn(inputs=sources_input, initial_state=old_state,
+                                                                         mask=tf.sequence_mask(final_len))
+
+                                            setattr(self, str(dst_name) + '_state', new_state)
+
+
+                                    else:  # if feed_forward. ASK
+                                        with tf.name_scope('ff_update_' + dst_name) as _:
+                                            try:
+                                                update = getattr(self, dst_name + '_ff_combined_update')
+                                                current_hs = getattr(self, dst_name + '_state')
+
+                                                # now we need to obtain for each adjacency the concatenation of the source and the destination
+                                                update_input = tf.concat([sources_input, current_hs], axis=1)
+                                                new_state = update(update_input)
+                                                setattr(self, str(dst_name) + '_state', new_state)  # update new state
+
+                                            except:
+                                                tf.compat.v1.logging.error(
+                                                    'IGNNITION:  This functionality is not yet fully supported')
+                                                sys.exit(1)
 
         # -----------------------------------------------------------------------------------
-        #READOUT PHASE
+        # READOUT PHASE
         with tf.name_scope('readout_predictions') as _:
             readout_opeartions = model_info.get_readout_operations()
 
             counter = 0
             for operation in readout_opeartions:
                 if operation.type == "predict":
-                    model = getattr(self, 'readout_model_' +str(counter))
+                    model = getattr(self, 'readout_model_' + str(counter))
 
                     try:
                         # if we are reusing information
@@ -923,8 +943,8 @@ class ComnetModel(tf.keras.Model):
                         # if it is some additional information of the dataset
                         prediction_input = input[operation.input[0]]
 
-                    r = model(prediction_input)    #predicting should only be done once.
-                    #r = model(prediction_input, training =training)
+                    r = model(prediction_input)  # predicting should only be done once.
+                    # r = model(prediction_input, training =training)
 
                     if operation.output_name is not None:
                         setattr(self, operation.output_name + '_state', r)
@@ -932,24 +952,24 @@ class ComnetModel(tf.keras.Model):
 
 
                 elif operation.type == "pooling":
-                    #obtain the input of the pooling operation
+                    # obtain the input of the pooling operation
                     try:
                         pooling_input = getattr(self, operation.input[0] + '_state')
                     except:
                         pooling_input = input[operation.input[0]]
 
-                    #here we do the pooling
+                    # here we do the pooling
                     if operation.type_pooling == 'sum':
 
                         pooling_output = tf.reduce_sum(pooling_input, 0)
                         pooling_output = tf.reshape(pooling_output, [-1] + [pooling_output.shape.as_list()[0]])
 
                     elif operation.type_pooling == 'mean':
-                        pooling_output = tf.reduce_mean(pooling_input,0)
+                        pooling_output = tf.reduce_mean(pooling_input, 0)
                         pooling_output = tf.reshape(pooling_output, [-1] + [pooling_output.shape.as_list()[0]])
 
                     elif operation.type_pooling == 'max':
-                        pooling_output = tf.reduce_max(pooling_input,0)
+                        pooling_output = tf.reduce_max(pooling_input, 0)
                         pooling_output = tf.reshape(pooling_output, [-1] + [pooling_output.shape.as_list()[0]])
 
                     setattr(self, operation.output_name + '_state', pooling_output)
@@ -961,8 +981,7 @@ class ComnetModel(tf.keras.Model):
                     except:
                         product_input1 = input[operation.input[0]]
 
-
-                    #obtain the second input
+                    # obtain the second input
                     try:
                         product_input2 = getattr(self, operation.input[1] + '_state')
                     except:
@@ -970,7 +989,7 @@ class ComnetModel(tf.keras.Model):
 
                     try:
                         if operation.type_product == 'dot_product':
-                            product_output = tf.tensordot(product_input1, product_input2, axes = 0)
+                            product_output = tf.tensordot(product_input1, product_input2, axes=0)
 
                         elif operation.type_product == 'element_wise':
                             product_output = tf.math.multiply(product_input1, product_input2)
@@ -979,14 +998,15 @@ class ComnetModel(tf.keras.Model):
 
                     except:
                         tf.compat.v1.logging.error('IGNNITION:  The product operation between ' + str(
-                            operation.input[0]) + ' and ' + operation.input[1] + ' failed. Check that the dimensions are compatible.')
+                            operation.input[0]) + ' and ' + operation.input[
+                                                       1] + ' failed. Check that the dimensions are compatible.')
                         sys.exit(1)
 
 
 
 
                 elif operation.type == 'neural_network':
-                    var_name = 'readout_model_' +str(counter)
+                    var_name = 'readout_model_' + str(counter)
                     readout_nn = getattr(self, var_name)
 
                     first = True
@@ -1004,7 +1024,6 @@ class ComnetModel(tf.keras.Model):
                         else:
                             resulting_input = tf.concat([resulting_input, new_input], axis=1)
 
-
                     result = readout_nn(resulting_input)
                     setattr(self, operation.output_name + '_state', result)
 
@@ -1013,46 +1032,43 @@ class ComnetModel(tf.keras.Model):
                     adj_list_src = input['src_' + operation.adj_list]
                     adj_list_dst = input['dst_' + operation.adj_list]
 
-                    #get the source input
+                    # get the source input
                     try:
                         source = getattr(self, operation.input[0] + '_state')
                     except:
                         source = input[operation.input[0]]
 
-                    #get the destination input
+                    # get the destination input
                     try:
                         dest = getattr(self, operation.input[1] + '_state')
                     except:
                         dest = input[operation.input[1]]
 
-
-                    #obtain the extended input (by extending it to the number of adjacencies between them)
+                    # obtain the extended input (by extending it to the number of adjacencies between them)
                     try:
                         extended_src = tf.gather(source, adj_list_src)
                     except:
-                        tf.compat.v1.logging.error('IGNNITION:  Extending the adjacency list ' + str(adj_list) + ' was not possible. Check that the indexes of the source of the adjacency list match the input given.')
+                        tf.compat.v1.logging.error('IGNNITION:  Extending the adjacency list ' + str(
+                            adj_list) + ' was not possible. Check that the indexes of the source of the adjacency list match the input given.')
                         sys.exit(1)
 
                     try:
                         extended_dst = tf.gather(dest, adj_list_dst)
                     except:
-                        tf.compat.v1.logging.error('IGNNITION:  Extending the adjacency list ' + str(adj_list) + ' was not possible. Check that the indexes of the destination of the adjacency list match the input given.')
+                        tf.compat.v1.logging.error('IGNNITION:  Extending the adjacency list ' + str(
+                            adj_list) + ' was not possible. Check that the indexes of the destination of the adjacency list match the input given.')
                         sys.exit(1)
 
-
-                    #save the source
+                    # save the source
                     setattr(self, operation.output_name[0] + '_state', extended_src)
 
-                    #save the destination
+                    # save the destination
                     setattr(self, operation.output_name[1] + '_state', extended_dst)
-
 
                 counter += 1
 
 
-
-
-def model_fn(features,labels,mode):
+def model_fn(features, labels, mode):
     """
     Parameters
     ----------
@@ -1064,28 +1080,28 @@ def model_fn(features,labels,mode):
         Either train, eval or predict
     """
 
-    #create the model
+    # create the model
     model = ComnetModel()
 
-    #peform the predictions
+    # peform the predictions
     predictions = model(features, training=(mode == tf.estimator.ModeKeys.TRAIN))
 
-    #prediction mode. Denormalization is done if so specified
+    # prediction mode. Denormalization is done if so specified
     if mode == tf.estimator.ModeKeys.PREDICT:
         output_names, _, output_denormalizations = model_info.get_output_info()  # for now suppose we only have one output type
 
         try:
             predictions = eval(output_denormalizations[0])(predictions, output_names[0])
         except:
-            tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_names[0] + ' was not defined. The output will be normalized.')
-
+            tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_names[
+                0] + ' was not defined. The output will be normalized.')
 
         return tf.estimator.EstimatorSpec(
-            mode, predictions= {
+            mode, predictions={
                 'predictions': predictions
-        })
+            })
 
-    #dynamically define the loss function from the keras documentation
+    # dynamically define the loss function from the keras documentation
     name = model_info.get_loss()
     loss = globals()[name]
     loss_function = loss()
@@ -1099,17 +1115,18 @@ def model_fn(features,labels,mode):
     tf.summary.scalar('regularization_loss', regularization_loss)
     tf.summary.scalar('total_loss', total_loss)
 
-    #evaluation mode
+    # evaluation mode
     if mode == tf.estimator.ModeKeys.EVAL:
-        #perform denormalization if defined
+        # perform denormalization if defined
         output_names, _, output_denormalizations = model_info.get_output_info()
         try:
             labels = eval(output_denormalizations[0])(labels, output_names[0])
             predictions = eval(output_denormalizations[0])(predictions, output_names[0])
         except:
-            tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_names[0] + ' was not defined. The output (and statistics) will use the normalized values.')
+            tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_names[
+                0] + ' was not defined. The output (and statistics) will use the normalized values.')
 
-        #metrics calculations
+        # metrics calculations
         label_mean = tf.keras.metrics.Mean()
         _ = label_mean.update_state(labels)
         prediction_mean = tf.keras.metrics.Mean()
@@ -1136,22 +1153,23 @@ def model_fn(features,labels,mode):
     summaries = [tf.summary.histogram(var.op.name, var) for var in model.trainable_variables]
     summaries += [tf.summary.histogram(g.op.name, g) for g in grads if g is not None]
 
-    #dynamically define the optimizer
+    # dynamically define the optimizer
     optimizer_params = model_info.get_optimizer()
     op_type = optimizer_params['type']
     del optimizer_params['type']
 
-    #dynamically define the adaptative learning rate if needed
+    # dynamically define the adaptative learning rate if needed
     schedule = model_info.get_schedule()
     if schedule != {}:
         type = schedule['type']
         del schedule['type']  # so that only the parameters remain
         s = globals()[type]
-        optimizer_params['learning_rate'] = s(**schedule)  # create an instance of the schedule class indicated by the user. Accepts any schedule from keras documentation
+        optimizer_params['learning_rate'] = s(
+            **schedule)  # create an instance of the schedule class indicated by the user. Accepts any schedule from keras documentation
 
     o = globals()[op_type]
-    optimizer = o(**optimizer_params)  # create an instance of the optimizer class indicated by the user. Accepts any loss function from keras documentation
-
+    optimizer = o(
+        **optimizer_params)  # create an instance of the optimizer class indicated by the user. Accepts any loss function from keras documentation
 
     optimizer.iterations = tf.compat.v1.train.get_or_create_global_step()
 
@@ -1161,11 +1179,10 @@ def model_fn(features,labels,mode):
         {"Loss": loss,
          "Regularization loss": regularization_loss,
          "Total loss": total_loss}
-    , every_n_iter=10)
+        , every_n_iter=10)
 
     return EstimatorSpec(mode,
-                          loss=loss,
-                          train_op=train_op,
-                          training_hooks=[logging_hook]
-                          )
-
+                         loss=loss,
+                         train_op=train_op,
+                         training_hooks=[logging_hook]
+                         )

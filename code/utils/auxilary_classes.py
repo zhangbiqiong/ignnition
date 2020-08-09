@@ -21,6 +21,7 @@
 
 import tensorflow as tf
 
+
 class Feature:
     """
     Attributes
@@ -116,7 +117,8 @@ class Entity:
 
 class Operation:
     def __init__(self, type):
-        self.type = type    #type of operation
+        self.type = type  # type of operation
+
 
 class Apply_nn(Operation):
     def __init__(self, op, counter=0):
@@ -131,22 +133,19 @@ class Apply_nn(Operation):
         else:
             self.output_name = 'None'
 
-        #we need somehow to find the number of extra_parameters beforehand
-        self.model = Feed_forward_message_creation(op['architecture'],counter, 0)
+        # we need somehow to find the number of extra_parameters beforehand
+        self.model = Feed_forward_message_creation(op['architecture'], counter, 0)
 
 
 class Apply_rnn(Operation):
     def __init__(self, op):
         super(Apply_rnn, self).__init__(type="recurrent_nn")
 
-        #Here initialize the recursive neural network (op might contain any additional parameter of the RNN?
+        # Here initialize the recursive neural network (op might contain any additional parameter of the RNN?
         del op['type']
         recurrent_type = op['recurrent_type']
         del op['recurrent_type']
         self.model = Recurrent_Cell(recurrent_type, op)
-
-
-
 
 
 class Combined_mp:
@@ -175,7 +174,7 @@ class Combined_mp:
         self.message_combination = dict['message_combination']
         self.concat_axis = 1
 
-        #define the interleave definition
+        # define the interleave definition
         if 'interleave_definition' in dict:
             self.combination_definition = dict['interleave_definition']
         else:
@@ -183,16 +182,17 @@ class Combined_mp:
 
         params = dict['update']
 
-        #define the update type
+        # define the update type
         if params['type'] == 'recurrent_neural_network':
             self.update = Apply_rnn(params)
 
         elif params['type'] == 'neural_network':
             self.update = Apply_nn(params)
 
-        #define how to concatenate the axis
+        # define how to concatenate the axis
         if 'concat_axis' in dict:
             self.concat_axis = int(dict['concat_axis'])
+
 
 class Message_Passing:
     """
@@ -250,7 +250,7 @@ class Message_Passing:
         Adds a layer to the update model
     """
 
-    def __init__ (self, m):
+    def __init__(self, m):
         """
         Parameters
         ----------
@@ -264,7 +264,6 @@ class Message_Passing:
         self.adj_vector = m['adj_vector']
         self.extra_parameters = m['extra_parameters']
 
-
         if 'aggregation' in m:
             self.aggregation = m['aggregation']
 
@@ -276,14 +275,12 @@ class Message_Passing:
         else:
             self.message_formation = [Operation("direct_assignation")]
 
-
     def create_update(self, u):
         if u["type"] == 'neural_network':
             return Apply_nn({'architecture': u['architecture']})
 
         if u['type'] == 'recurrent_neural_network':
             return Apply_rnn(u)
-
 
     def find_type_of_message_creation(self, type):
         """
@@ -295,7 +292,6 @@ class Message_Passing:
         if type == 'yes':
             return 'feed_forward'
         return 'hidden_state'
-
 
     def create_message_formation(self, operations):
         result = []
@@ -309,14 +305,14 @@ class Message_Passing:
             counter += 1
         return result
 
-
     def get_instance_info(self):
-        ordered = str((self.aggregation == 'ordered') or (self.aggregation == 'combination') or (self.aggregation == 'attention'))
+        ordered = str(
+            (self.aggregation == 'ordered') or (self.aggregation == 'combination') or (self.aggregation == 'attention'))
 
         return [self.adj_vector, self.source_entity, self.destination_entity, ordered, str(self.extra_parameters > 0)]
 
-    #SETTERS
-    def set_message_formation(self, message_neural_net, number_extra_parameters = 0):
+    # SETTERS
+    def set_message_formation(self, message_neural_net, number_extra_parameters=0):
         """
         Parameters
         ----------
@@ -326,12 +322,11 @@ class Message_Passing:
             Extra parameters to be used from the dataset
         """
 
-        if  message_neural_net == 'no':
+        if message_neural_net == 'no':
             self.formation_type = 'recurrent'
         else:
             self.formation_type = 'feed_forward'
-            self.message_formation= Feed_forward_message_creation({}, 0, number_extra_parameters)
-
+            self.message_formation = Feed_forward_message_creation({}, 0, number_extra_parameters)
 
     def add_message_formation_layer(self, **dict):
         """
@@ -353,8 +348,7 @@ class Message_Passing:
 
         self.aggregation = aggregation
 
-
-    def set_update_strategy(self, update_type, recurrent_type = 'GRU'):
+    def set_update_strategy(self, update_type, recurrent_type='GRU'):
         """
         Parameters
         ----------
@@ -371,8 +365,7 @@ class Message_Passing:
             self.update = Recurrent_Cell(recurrent_type, parameters)
 
         elif update_type == 'feed_forward':
-            self.update = Feed_forward_model({'architecture':{}},model_role="update")
-
+            self.update = Feed_forward_model({'architecture': {}}, model_role="update")
 
     def add_update_layer(self, **dict):
         self.update.add_layer_aux(dict)
@@ -407,7 +400,6 @@ class Recurrent_Cell:
         self.type = type
         self.parameters = parameters
 
-
     def get_tensorflow_object(self, destination_dimension):
         """
         Parameters
@@ -416,10 +408,9 @@ class Recurrent_Cell:
             Number of units that the recurrent cell will have
         """
         self.parameters['units'] = destination_dimension
-        c_ = getattr(tf.keras.layers, self.type+'Cell')
+        c_ = getattr(tf.keras.layers, self.type + 'Cell')
         layer = c_(**self.parameters)
         return layer
-
 
 
 class Feed_forward_Layer:
@@ -460,7 +451,6 @@ class Feed_forward_Layer:
         if 'activation' in parameters and parameters['activation'] == 'None':
             parameters['activation'] = None
 
-
     def get_tensorflow_object(self, l_previous):
         """
         Parameters
@@ -472,7 +462,6 @@ class Feed_forward_Layer:
         c_ = getattr(tf.keras.layers, self.type)
         layer = c_(**self.parameters)(l_previous)
         return layer
-
 
     def get_tensorflow_object_last(self, l_previous, destination_units):
         """
@@ -510,7 +499,7 @@ class Feed_forward_model:
 
     """
 
-    def __init__(self, model,model_role):
+    def __init__(self, model, model_role):
         """
         Parameters
         ----------
@@ -524,14 +513,14 @@ class Feed_forward_model:
         if 'architecture' in model:
             dict = model['architecture']
             for l in dict:
-                type_layer = l['type_layer'] #type of layer
+                type_layer = l['type_layer']  # type of layer
                 if 'name' not in l:
                     l['name'] = 'layer_' + str(self.counter) + '_' + type_layer + '_' + str(model_role)
-                del l['type_layer']  #leave only the parameters of the layer
+                del l['type_layer']  # leave only the parameters of the layer
 
                 layer = Feed_forward_Layer(type_layer, l)
                 self.layers.append(layer)
-                self.counter +=1
+                self.counter += 1
 
     def add_layer(self, **l):
         """
@@ -546,7 +535,7 @@ class Feed_forward_model:
         layer = Feed_forward_Layer(type_layer, l)
         self.layers.append(layer)
 
-    def add_layer_aux(self,l):
+    def add_layer_aux(self, l):
         """
         Parameters
         ----------
@@ -570,7 +559,7 @@ class Feed_forward_message_creation(Feed_forward_model):
         Extra parameters to be used from the dataset
     """
 
-    def __init__(self,architecture, counter, num_parameter):
+    def __init__(self, architecture, counter, num_parameter):
         """
         Parameters
         ----------
@@ -580,10 +569,9 @@ class Feed_forward_message_creation(Feed_forward_model):
             Extra parameters to be used from the dataset
         """
 
-        super(Feed_forward_message_creation, self).__init__({'architecture':architecture}, model_role="message_creation_" + str(counter))
+        super(Feed_forward_message_creation, self).__init__({'architecture': architecture},
+                                                            model_role="message_creation_" + str(counter))
         self.num_extra_parameters = num_parameter
-
-
 
 
 class Readout_operation():
@@ -591,6 +579,7 @@ class Readout_operation():
         self.type = op['type']
         self.input = op['input']
         self.output_name = None
+
 
 class Product_operation(Readout_operation):
     def __init__(self, op):
@@ -624,7 +613,7 @@ class Predicting_operation(Readout_operation):
         """
 
         super(Predicting_operation, self).__init__(operation)
-        self.architecture = Feed_forward_model({'architecture':operation['architecture']}, model_role="readout")
+        self.architecture = Feed_forward_model({'architecture': operation['architecture']}, model_role="readout")
         self.label = operation['label']
         self.label_normalization = None
         self.label_denormalization = None
@@ -678,13 +667,13 @@ class Readout_nn(Readout_operation):
         else:
             self.output_name = 'None'
 
-        #we need somehow to find the number of extra_parameters beforehand
+        # we need somehow to find the number of extra_parameters beforehand
         self.architecture = Feed_forward_model({'architecture': op['architecture']}, model_role="readout")
 
 
 class Extend_adjacencies(Readout_operation):
     def __init__(self, op):
-        super(Extend_adjacencies, self).__init__({'type':op['type'], 'input': op['input']})
+        super(Extend_adjacencies, self).__init__({'type': op['type'], 'input': op['input']})
         self.adj_list = op['adj_list']
 
         self.output_name = [op['output_name_src'], op['output_name_dst']]

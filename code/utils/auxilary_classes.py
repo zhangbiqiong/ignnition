@@ -186,19 +186,19 @@ class Interleave_comb_mp(Combined_mp):
     def __init__(self, dict):
         super(Interleave_comb_mp, self).__init__(dict)
 
-        self.combination_definition = dict['interleave_definition']
+        self.combination_definition = dict['combination']['interleave_definition']
 
 
 class Concat_comb_mp(Combined_mp):
     def __init__(self, dict):
         super(Concat_comb_mp, self).__init__(dict)
-        self.concat_axis = int(dict['concat_axis'])
+        self.concat_axis = int(dict['combination']['concat_axis'])
 
 
 class Aggregated_comb_mp(Combined_mp):
     def __init__(self, dict):
         super(Aggregated_comb_mp, self).__init__(dict)
-        self.combined_aggregation = dict['combined_aggregation']
+        self.combined_aggregation = dict['combination']['combined_aggregation']
 
 
 

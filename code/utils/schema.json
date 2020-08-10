@@ -222,25 +222,61 @@
                                 "description": "Destination entity receiving messages from several source entities.",
                                 "type": "string"
                             },
-                            
-                            "message_combination": {
-                                "description": "Describes how the messages received are combined.",
-                                "type": "string",
-                                "enum": ["concat", "interleave", "aggregate_together"]
-                            },
-                            "combined_aggregation": {
-                                "description": "Aggregate all the messages together, treating them all similarly",
-                                "type": "string",
-                                "enum": ["sum", "attention"]
-                            },
-                            "concat_axis": {
-                                "description": "Define how to concatenate the messages together",
-                                "type": "integer",
-                                "enum": [1, 2]
-                            },
-                            "interleave_definition": {
-                                "description": "Descrives how the interleaving is done",
-                                "type": "string"
+                            "combination": {
+                                "description": "Describe how the messages are aggregated",
+                                "type": "object",
+                                "properties": 
+                                {
+                                    "combination_type": {
+                                        "description": "Describes how the messages received are combined.",
+                                        "type": "string",
+                                        "enum": ["concat", "interleave", "aggregate_together"]
+                                    },
+                                    "combined_aggregation": {
+                                        "description": "Aggregate all the messages together, treating them all similarly",
+                                        "type": "string",
+                                        "enum": ["sum", "attention"]
+                                    },
+                                    "concat_axis": {
+                                        "description": "Define how to concatenate the messages together",
+                                        "type": "integer",
+                                        "enum": [1, 2]
+                                    },
+                                    "interleave_definition": {
+                                        "description": "Descrives how the interleaving is done",
+                                        "type": "string"
+                                    }
+                                },
+                                "allOf": 
+                                [
+                                    {
+                                        "if": {
+                                            "properties": { "combination_type": { "const": "interleave" } }
+                                        },
+                                        "then":
+                                        {
+                                            "required": ["interleave_definition"] 
+                                        }
+                                    },
+                                    {
+                                        "if": {
+                                            "properties": { "combination_type": { "const": "concat" } }
+                                        },
+                                        "then":
+                                        {
+                                            "required": ["concat_axis"] 
+                                        }
+                                    },
+                                    {
+                                        "if": {
+                                            "properties": { "combination_type": { "const": "aggregate_together" } }
+                                        },
+                                        "then":
+                                        {
+                                            "required": ["combined_aggregation"] 
+                                        }
+                                    }
+                                ]
                             },
                             "update": {
                                 "type":"object",
@@ -261,37 +297,8 @@
                                 "required": ["nn_name"]   
                             }
                         },
-                        "allOf": 
-                        [
-                            {
-                                "if": {
-                                    "properties": { "message_combination": { "const": "interleave" } }
-                                },
-                                "then":
-                                {
-                                    "required": ["interleave_definition"] 
-                                }
-                            },
-                            {
-                                "if": {
-                                    "properties": { "message_combination": { "const": "concat" } }
-                                },
-                                "then":
-                                {
-                                    "required": ["concat_axis"] 
-                                }
-                            },
-                            {
-                                "if": {
-                                    "properties": { "message_combination": { "const": "aggregate_together" } }
-                                },
-                                "then":
-                                {
-                                    "required": ["combined_aggregation"] 
-                                }
-                            }
-                        ],
-                        "required": ["step", "destination_entity", "update", "message_combination"]
+                        
+                        "required": ["step", "destination_entity", "update", "combination"]
                     }
                 }
 

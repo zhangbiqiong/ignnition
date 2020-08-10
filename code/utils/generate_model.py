@@ -633,7 +633,6 @@ class ComnetModel(tf.keras.Model):
 
                                     # -----------------------------------------
                                     # aggregation
-
                                     agg = message.aggregation
 
                                     # sum aggregation
@@ -717,6 +716,7 @@ class ComnetModel(tf.keras.Model):
                                     elif agg == 'convolutional':
                                         print("Here we would do a convolution")
 
+
                                     # ---------------------------------------
                                     # update
 
@@ -763,17 +763,13 @@ class ComnetModel(tf.keras.Model):
 
 
 
-                                # Treat the combined message passings' aggregation. Only pre-processing
+                                # -----------------------------------------
+                                # combination preprocessing
                                 else:
-                                    agg = message.aggregation
+                                    with tf.name_scope('combination_preprocessing' + src_name) as _:
+                                        setattr(self, str(src_name) + '_to_' + str(dst_name) + '_src', src_idx)
+                                        setattr(self, str(src_name) + '_to_' + str(dst_name) + '_dst', dst_idx)
 
-                                    # -----------------------------------------
-                                    # combination aggreagation
-
-                                    if agg == 'combination':
-                                        with tf.name_scope('combination_preprocessing' + src_name) as _:
-                                            setattr(self, str(src_name) + '_to_' + str(dst_name) + '_src', src_idx)
-                                            setattr(self, str(src_name) + '_to_' + str(dst_name) + '_dst', dst_idx)
 
 
                         # ---------------------------------
@@ -794,209 +790,155 @@ class ComnetModel(tf.keras.Model):
                                 # ----------------------------
                                 # concatenation combination.
                                 with tf.name_scope("combined_mp_to" + dst_name) as _:
-                                    if isinstance(m, Concat_comb_mp):
-                                        with tf.name_scope("concatenate_input_of_" + dst_name) as _:
-                                            first = True
-                                            for src_name in comb_sources:
-                                                seq = input['seq_' + src_name + '_' + dst_name]
-                                                src_idx = getattr(self, str(src_name) + '_to_' + str(dst_name) + '_src')
-                                                dst_idx = getattr(self, str(src_name) + '_to_' + str(dst_name) + '_dst')
-                                                states = getattr(self, str(src_name) + '_state')
+                                    first = True
+                                    for src_name in comb_sources:
+                                        seq = input['seq_' + src_name + '_' + dst_name]
+                                        src_idx = getattr(self, str(src_name) + '_to_' + str(dst_name) + '_src')
+                                        dst_idx = getattr(self, str(src_name) + '_to_' + str(dst_name) + '_dst')
+                                        states = getattr(self, str(src_name) + '_state')
 
-                                                src_states = tf.gather(states, src_idx)
-                                                num_dst = input['num_' + dst_name]
+                                        src_states = tf.gather(states, src_idx)
+                                        num_dst = input['num_' + dst_name]
 
-                                                #prepare the input for the concat
-                                                ids = tf.stack([dst_idx, seq], axis=1)
+                                        # prepare the input for the concat
+                                        ids = tf.stack([dst_idx, seq], axis=1)
 
-                                                lens = tf.math.segment_sum(data=tf.ones_like(dst_idx),
-                                                                           segment_ids=dst_idx)
+                                        lens = tf.math.segment_sum(data=tf.ones_like(dst_idx),
+                                                                   segment_ids=dst_idx)
 
-                                                max_len = tf.reduce_max(seq) + 1
+                                        max_len = tf.reduce_max(seq) + 1
 
-                                                shape = tf.stack([num_dst, max_len, int(self.dimensions[src_name])])
+                                        shape = tf.stack([num_dst, max_len, int(self.dimensions[src_name])])
 
-                                                s = tf.scatter_nd(ids, src_states, shape)  # find the input ordering it by sequence
+                                        s = tf.scatter_nd(ids, src_states,
+                                                          shape)  # find the input ordering it by sequence
 
-                                                s = tf.RaggedTensor.from_tensor(s, lengths=lens)
+                                        s = tf.RaggedTensor.from_tensor(s, lengths=lens)
 
-                                                with tf.name_scope("concat_" + src_name) as _:
-                                                    if first:
-                                                        src_input = s
-                                                        final_len = lens
-                                                        first = False
-                                                    else:
-                                                        src_input = tf.concat([src_input, s],axis=m.concat_axis)
-                                                        if m.concat_axis == 1:  # if axis=2, then the number of messages received is the same. Simply create bigger messages
-                                                            final_len += lens
+                                        if isinstance(m, Concat_comb_mp):
+                                            with tf.name_scope("concat_" + src_name) as _:
+                                                if first:
+                                                    src_input = s
+                                                    final_len = lens
+                                                    first = False
+                                                else:
+                                                    src_input = tf.concat([src_input, s], axis=m.concat_axis)
+                                                    if m.concat_axis == 1:  # if axis=2, then the number of messages received is the same. Simply create bigger messages
+                                                        final_len += lens
 
-                                            src_input = src_input.to_tensor()
+                                        elif isinstance(m, Aggregated_comb_mp):
+                                            # obtain the overall input of each of the destinations
+                                            if first:
+                                                first = False
+                                                src_input = s  # destinations x max_of_sources_to_dest x dim_source
+                                                comb_src_states = src_states
+                                                comb_dst_idx = dst_idx
+                                                comb_seq = seq
+                                                final_len = lens
+                                                F1 = int(self.dimensions[src_name])
+                                            else:
+                                                src_input = tf.concat([src_input, s],
+                                                                      axis=1)  # destinations x max_of_sources_to_dest_concat x dim_source
+                                                comb_src_states = tf.concat([comb_src_states, src_states],
+                                                                            axis=0)  # obtain all the source states
+                                                comb_dst_idx = tf.concat([comb_dst_idx, dst_idx], axis=0)
 
-                                    # --------------------------------
-                                    # interleave combination
-                                    elif isinstance(m, Interleave_comb_mp):
-                                        with tf.name_scope('interleave_' + dst_name) as _:
+                                                # lens of each src-dst value
+                                                aux_lens = tf.gather(lens, dst_idx)
+                                                aux_seq = seq + aux_lens  # sum to the sequences the current length for each dest
 
-                                            first = True
-                                            for src_name in comb_sources:
-                                                seq = input['seq_' + src_name + '_' + dst_name]
-                                                src_idx = getattr(self, str(src_name) + '_to_' + str(dst_name) + '_src')
-                                                dst_idx = getattr(self, str(src_name) + '_to_' + str(dst_name) + '_dst')
-                                                states = getattr(self, str(src_name) + '_state')
+                                                comb_seq = tf.concat([comb_seq, aux_seq], axis=0)
+                                                final_len = tf.math.add(final_len, lens)
 
-                                                src_states = tf.gather(states, src_idx)
-                                                num_dst = input['num_' + dst_name]
-
-                                                # prepare the input for the concat
-                                                ids = tf.stack([dst_idx, seq], axis=1)
-
-                                                lens = tf.math.segment_sum(data=tf.ones_like(dst_idx),
-                                                                           segment_ids=dst_idx)
-
-                                                max_len = tf.reduce_max(seq) + 1
-
-                                                shape = tf.stack([num_dst, max_len, int(self.dimensions[src_name])])
-
-                                                s = tf.scatter_nd(ids, src_states,
-                                                                  shape)  # find the input ordering it by sequence
-
-                                                s = tf.RaggedTensor.from_tensor(s, lengths=lens)
-
-
-                                                with tf.name_scope('add_' + src_name) as _:
-                                                    indices_source = input["indices_" + src_name + '_to_' + dst_name]
-                                                    if first:
-                                                        first = False
-                                                        src_input = s  # destinations x max_of_sources_to_dest x dim_source
-                                                        indices = indices_source
-                                                        final_len = lens
-                                                    else:
-                                                        src_input = tf.concat([src_input, s],axis=1)  # destinations x max_of_sources_to_dest_concat x dim_source
-                                                        indices = tf.stack([indices, indices_source], axis=0)
-                                                        final_len = tf.math.add(final_len,lens)  # check this len? We just sum the max of each of them?
-
-
-                                            # place each of the messages into the right spot in the sequence defined
-                                            with tf.name_scope('order_sources_from_' + dst_name) as _:
-                                                # destinations x max_of_sources_to_dest_concat x dim_source ->  (max_of_sources_to_dest_concat x destinations x dim_source)
-                                                src_input = src_input.to_tensor()
-                                                src_input = tf.transpose(src_input, perm=[1, 0,2])
-                                                indices = tf.reshape(indices, [-1, 1])
-
-                                                src_input = tf.scatter_nd(indices, src_input,tf.shape(src_input,out_type=tf.int64))
-
-                                                # (max_of_sources_to_dest_concat x destinations x dim_source) -> destinations x max_of_sources_to_dest_concat x dim_source
-                                                src_input = tf.transpose(src_input, perm=[1, 0,2])
-
-
-                                    # --------------------------------
-                                    # aggregated combined message passings
-                                    elif isinstance(m, Aggregated_comb_mp):
-                                        with tf.name_scope('aggregate_together' + dst_name) as _:
-                                            first = True
-                                            for src_name in comb_sources:
-                                                seq = input['seq_' + src_name + '_' + dst_name]
-                                                src_idx = getattr(self, str(src_name) + '_to_' + str(dst_name) + '_src')
-                                                dst_idx = getattr(self, str(src_name) + '_to_' + str(dst_name) + '_dst')
-                                                states = getattr(self, str(src_name) + '_state')
-
-                                                src_states = tf.gather(states, src_idx)
-                                                num_dst = input['num_' + dst_name]
-
-                                                # prepare the input for the concat
-                                                ids = tf.stack([dst_idx, seq], axis=1)
-
-                                                lens = tf.math.segment_sum(data=tf.ones_like(dst_idx),
-                                                                           segment_ids=dst_idx)
-
-                                                max_len = tf.reduce_max(seq) + 1
-
-                                                shape = tf.stack([num_dst, max_len, int(self.dimensions[src_name])])
-
-                                                s = tf.scatter_nd(ids, src_states,
-                                                                  shape)  # find the input ordering it by sequence
-
-                                                s = tf.RaggedTensor.from_tensor(s, lengths=lens)
-
-
-                                                # obtain the overall input of each of the destinations
+                                        elif isinstance(m, Interleave_comb_mp):
+                                            with tf.name_scope('add_' + src_name) as _:
+                                                indices_source = input["indices_" + src_name + '_to_' + dst_name]
                                                 if first:
                                                     first = False
                                                     src_input = s  # destinations x max_of_sources_to_dest x dim_source
-                                                    comb_src_states = src_states
-                                                    comb_dst_idx = dst_idx
-                                                    comb_seq = seq
+                                                    indices = indices_source
                                                     final_len = lens
-                                                    F1 = int(self.dimensions[src_name])
                                                 else:
-                                                    src_input = tf.concat([src_input, s],axis=1)  # destinations x max_of_sources_to_dest_concat x dim_source
-                                                    comb_src_states = tf.concat([comb_src_states, src_states], axis=0)  #obtain all the source states
-                                                    comb_dst_idx = tf.concat([comb_dst_idx, dst_idx], axis=0)
+                                                    src_input = tf.concat([src_input, s],
+                                                                          axis=1)  # destinations x max_of_sources_to_dest_concat x dim_source
+                                                    indices = tf.stack([indices, indices_source], axis=0)
+                                                    final_len = tf.math.add(final_len,
+                                                                            lens)  # check this len? We just sum the max of each of them?
 
-                                                    #lens of each src-dst value
-                                                    aux_lens = tf.gather(lens, dst_idx)
-                                                    aux_seq = seq + aux_lens   #sum to the sequences the current length for each dest
+                                    # ------------------------------
+                                    # perform the final aggregation with the accum inputs
 
-                                                    comb_seq = tf.concat([comb_seq, aux_seq], axis=0)
-                                                    final_len = tf.math.add(final_len, lens)
+                                    src_input = src_input.to_tensor()
+
+                                    if isinstance(m, Interleave_comb_mp):
+                                        # place each of the messages into the right spot in the sequence defined
+                                        with tf.name_scope('order_sources_from_' + dst_name) as _:
+                                            # destinations x max_of_sources_to_dest_concat x dim_source ->  (max_of_sources_to_dest_concat x destinations x dim_source)
+                                            src_input = tf.transpose(src_input, perm=[1, 0, 2])
+                                            indices = tf.reshape(indices, [-1, 1])
+
+                                            src_input = tf.scatter_nd(indices, src_input,
+                                                                      tf.shape(src_input, out_type=tf.int64))
+
+                                            # (max_of_sources_to_dest_concat x destinations x dim_source) -> destinations x max_of_sources_to_dest_concat x dim_source
+                                            src_input = tf.transpose(src_input, perm=[1, 0, 2])
+
+                                    elif isinstance(m, Aggregated_comb_mp):
+                                        final_len = tf.ones_like(final_len)
+
+                                        # each of the states to combine is a tensor of shape num_dest x max_len x dimension_src
+                                        if m.combined_aggregation == 'sum':
+                                            src_input = tf.math.reduce_sum(src_input, axis=1)
 
 
-                                            src_input = src_input.to_tensor()
-                                            final_len = tf.ones_like(final_len)
+                                        elif m.combined_aggregation == 'attention':
+                                            # obtain the source states  (NxF1)
+                                            h_src = tf.identity(comb_src_states)
 
-                                            # each of the states to combine is a tensor of shape num_dest x max_len x dimension_src
-                                            if m.combined_aggregation == 'sum':
-                                                src_input = tf.math.reduce_sum(src_input, axis=1)
+                                            # obtain the destination states  (NxF2)
+                                            dst_states = getattr(self, str(dst_name) + '_state')
+                                            h_dst = tf.gather(dst_states, comb_dst_idx)
+                                            F2 = int(self.dimensions[dst_name])
 
+                                            # new number of features
+                                            F_ = F1
 
-                                            elif m.combined_aggregation == 'attention':
-                                                # obtain the source states  (NxF1)
-                                                h_src = tf.identity(comb_src_states)
+                                            # now apply a linear transformation for the sources (NxF1 -> NxF')
+                                            kernel1 = self.add_weight(shape=(F1, F_))
+                                            transformed_states_sources = K.dot(h_src,
+                                                                               kernel1)  # NxF'   (W h_i for every source)
 
-                                                # obtain the destination states  (NxF2)
-                                                dst_states = getattr(self, str(dst_name) + '_state')
-                                                h_dst = tf.gather(dst_states, comb_dst_idx)
-                                                F2 = int(self.dimensions[dst_name])
+                                            # now apply a linear transformation for the destinations (NxF2 -> NxF')
+                                            kernel2 = self.add_weight(shape=(F2, F_))
+                                            transformed_states_dest = K.dot(h_dst,
+                                                                            kernel2)  # NxF'   (W h_i for every dst)
 
-                                                # new number of features
-                                                F_ = F1
+                                            # concat source and dest for each edge
+                                            attention_input = tf.concat(
+                                                [transformed_states_sources, transformed_states_dest],
+                                                axis=1)  # Nx2F'
 
-                                                # now apply a linear transformation for the sources (NxF1 -> NxF')
-                                                kernel1 = self.add_weight(shape=(F1, F_))
-                                                transformed_states_sources = K.dot(h_src,
-                                                                                   kernel1)  # NxF'   (W h_i for every source)
+                                            # apply the attention weight vector    (N x 2F_) * (2F_ x 1) = (N x 1)
+                                            attn_kernel = self.add_weight(shape=(2 * F_, 1))
+                                            attention_input = K.dot(attention_input, attn_kernel)  # Nx1
 
-                                                # now apply a linear transformation for the destinations (NxF2 -> NxF')
-                                                kernel2 = self.add_weight(shape=(F2, F_))
-                                                transformed_states_dest = K.dot(h_dst,
-                                                                                kernel2)  # NxF'   (W h_i for every dst)
+                                            # apply the non linearity
+                                            attention_input = tf.keras.layers.LeakyReLU(alpha=0.2)(attention_input)
 
-                                                # concat source and dest for each edge
-                                                attention_input = tf.concat(
-                                                    [transformed_states_sources, transformed_states_dest],
-                                                    axis=1)  # Nx2F'
+                                            # reshape into a matrix where every row is a destination node and every column is one of its neighbours
+                                            ids = tf.stack([comb_dst_idx, comb_seq], axis=1)
+                                            max_len = tf.reduce_max(comb_seq) + 1
+                                            shape = tf.stack([num_dst, max_len, 1])
+                                            aux = tf.scatter_nd(ids, attention_input, shape)
 
-                                                # apply the attention weight vector    (N x 2F_) * (2F_ x 1) = (N x 1)
-                                                attn_kernel = self.add_weight(shape=(2 * F_, 1))
-                                                attention_input = K.dot(attention_input, attn_kernel)  # Nx1
+                                            # apply softmax to it (by rows)
+                                            coeffients = tf.keras.activations.softmax(aux, axis=0)
 
-                                                # apply the non linearity
-                                                attention_input = tf.keras.layers.LeakyReLU(alpha=0.2)(attention_input)
-
-                                                # reshape into a matrix where every row is a destination node and every column is one of its neighbours
-                                                ids = tf.stack([comb_dst_idx, comb_seq], axis=1)
-                                                max_len = tf.reduce_max(comb_seq) + 1
-                                                shape = tf.stack([num_dst, max_len, 1])
-                                                aux = tf.scatter_nd(ids, attention_input, shape)
-
-                                                # apply softmax to it (by rows)
-                                                coeffients = tf.keras.activations.softmax(aux, axis=0)
-
-                                                # sum them all together using the coefficients (average)
-                                                final_coeffitients = tf.gather_nd(coeffients, ids)
-                                                weighted_inputs = comb_src_states * final_coeffitients
-                                                src_input = tf.math.unsorted_segment_sum(weighted_inputs, comb_dst_idx,
-                                                                                            num_dst)
+                                            # sum them all together using the coefficients (average)
+                                            final_coeffitients = tf.gather_nd(coeffients, ids)
+                                            weighted_inputs = comb_src_states * final_coeffitients
+                                            src_input = tf.math.unsorted_segment_sum(weighted_inputs, comb_dst_idx,
+                                                                                     num_dst)
 
 
                                     # ------------------------------

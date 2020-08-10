@@ -316,7 +316,7 @@ class Model_information:
 
                 #here distinguish between the type of comb_mp
                 aux2 = self.__add_nn_architecture(mp_info)
-                message_combination = aux2['message_combination']
+                message_combination = aux2['combination']['combination_type']
                 if message_combination == 'interleave':
                     c = Interleave_comb_mp(aux2)
                 elif message_combination == 'aggregate_together':

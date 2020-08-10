@@ -122,8 +122,11 @@
                 {
                     "step": "step1",
                     "destination_entity": "path",
-                    "message_combination":"interleave",
-                    "interleave_definition": "path_interleave",
+                    "combination":
+                    {
+                        "combination_type":"interleave",
+                        "interleave_definition": "path_interleave"
+                    },
                     "update": 
                     {
                         "type": "recurrent_neural_network",

@@ -322,7 +322,7 @@ class Model_information:
                 elif message_combination == 'aggregate_together':
                     c = Aggregated_comb_mp(aux2)
                 else:
-                    c = Concat_comb_mp(aux)
+                    c = Concat_comb_mp(aux2)
 
                 dict[step_name].append(c)
             return dict

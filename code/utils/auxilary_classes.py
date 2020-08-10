@@ -169,7 +169,6 @@ class Combined_mp:
         dict:    dict
             Dictionary with the required attributes
         """
-
         self.dst_name = dict['destination_entity']
         #self.message_combination = dict['message_combination']
 

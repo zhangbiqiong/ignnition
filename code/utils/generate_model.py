@@ -156,16 +156,18 @@ def input_fn(data_dir, shuffle=False, training=True):
                                                 (types, tf.float32),
                                                 (shapes, tf.TensorShape(None)),
                                                 args=(
-                                                data_dir, feature_names, output_names, adjecency_info, interleave_list,
-                                                unique_additional_input, training, shuffle))
+                                                    data_dir, feature_names, output_names, adjecency_info,
+                                                    interleave_list,
+                                                    unique_additional_input, training, shuffle))
 
         else:
             ds = tf.data.Dataset.from_generator(generator,
                                                 (types),
                                                 (shapes),
                                                 args=(
-                                                data_dir, feature_names, output_names, adjecency_info, interleave_list,
-                                                unique_additional_input, training, shuffle))
+                                                    data_dir, feature_names, output_names, adjecency_info,
+                                                    interleave_list,
+                                                    unique_additional_input, training, shuffle))
 
         # ds = ds.batch(2)
 
@@ -563,7 +565,7 @@ class ComnetModel(tf.keras.Model):
 
                                 # initially all the messages are the source hs itself
                                 messages = tf.gather(states, src_idx)
-                                src_hs = tf.gather(states,src_idx)  # obtain each of the source hs for each adj
+                                src_hs = tf.gather(states, src_idx)  # obtain each of the source hs for each adj
                                 dst_hs = getattr(self, dst_name + '_state')
 
                                 # use a ff if so needed
@@ -626,7 +628,6 @@ class ComnetModel(tf.keras.Model):
                                                     messages = result  # by default, the message is always the result from the last operation
 
                                         counter += 1
-
 
                                 # treating the individual message passings
                                 if message.type == "single_source":
@@ -716,7 +717,6 @@ class ComnetModel(tf.keras.Model):
                                     elif agg == 'convolutional':
                                         print("Here we would do a convolution")
 
-
                                     # ---------------------------------------
                                     # update
 
@@ -769,8 +769,6 @@ class ComnetModel(tf.keras.Model):
                                     with tf.name_scope('combination_preprocessing' + src_name) as _:
                                         setattr(self, str(src_name) + '_to_' + str(dst_name) + '_src', src_idx)
                                         setattr(self, str(src_name) + '_to_' + str(dst_name) + '_dst', dst_idx)
-
-
 
                         # ---------------------------------
                         # Combined message passings
@@ -940,7 +938,6 @@ class ComnetModel(tf.keras.Model):
                                             src_input = tf.math.unsorted_segment_sum(weighted_inputs, comb_dst_idx,
                                                                                      num_dst)
 
-
                                     # ------------------------------
                                     # here we do the combined update
                                     update_model = m.update
@@ -949,14 +946,15 @@ class ComnetModel(tf.keras.Model):
                                             old_state = getattr(self, str(dst_name) + '_state')
                                             model = getattr(self, str(dst_name) + '_combined_update')
 
-                                            #treat differently since we reduced a dimension
+                                            # treat differently since we reduced a dimension
                                             if isinstance(m, Aggregated_comb_mp):
                                                 new_state, _ = model(src_input, [old_state])
 
                                             else:
                                                 gru_rnn = tf.keras.layers.RNN(model, return_sequences=True,
                                                                               return_state=True)
-                                                outputs, new_state = gru_rnn(inputs=src_input, initial_state=old_state,mask=tf.sequence_mask(final_len))
+                                                outputs, new_state = gru_rnn(inputs=src_input, initial_state=old_state,
+                                                                             mask=tf.sequence_mask(final_len))
 
                                             setattr(self, str(dst_name) + '_state', new_state)
 
@@ -977,7 +975,6 @@ class ComnetModel(tf.keras.Model):
                                                     'IGNNITION:  This functionality is not yet fully supported')
                                                 sys.exit(1)
 
-
         # -----------------------------------------------------------------------------------
         # READOUT PHASE
         with tf.name_scope('readout_predictions') as _:
@@ -986,7 +983,7 @@ class ComnetModel(tf.keras.Model):
             counter = 0
             for operation in readout_opeartions:
                 if operation.type == 'neural_network' or operation.type == 'predict':
-                    readout_nn = getattr(self,  'readout_model_' + str(counter))
+                    readout_nn = getattr(self, 'readout_model_' + str(counter))
 
                     first = True
                     for i in operation.input:
@@ -1003,7 +1000,7 @@ class ComnetModel(tf.keras.Model):
                         else:
                             nn_input = tf.concat([nn_input, new_input], axis=1)
 
-                    result = readout_nn(nn_input)
+                    result = readout_nn(nn_input, training = training)
 
                     if operation.type == 'neural_network':
                         setattr(self, operation.output_name + '_state', result)
@@ -1216,7 +1213,7 @@ def model_fn(features, labels, mode):
         , every_n_iter=10)
 
     return tf.estimator.EstimatorSpec(mode,
-                         loss=loss,
-                         train_op=train_op,
-                         training_hooks=[logging_hook]
-                         )
+                                      loss=loss,
+                                      train_op=train_op,
+                                      training_hooks=[logging_hook]
+                                      )

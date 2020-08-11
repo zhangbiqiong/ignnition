@@ -25,6 +25,7 @@ from auxilary_classes import *
 import copy
 import sys
 from auxilary_classes import *
+from functools import reduce
 
 
 class Model_information:
@@ -141,7 +142,7 @@ class Model_information:
 
         self.nn_architectures = self.__get_nn_mapping(data['neural_networks'])
         self.entities = self.__get_entities(data['entities'])
-        self.iterations_mp = data['message_passing']['num_iterations']
+        self.iterations_mp = int(data['message_passing']['num_iterations'])
         self.mp_instances = self.__get_mp_instances(data['message_passing']['architecture'])
         self.comb_op = self.__calc_comb_options(data)  # if there is any
         self.readout_op = self.__get_readout_op(data['readout'])
@@ -156,10 +157,8 @@ class Model_information:
         path:    str (optional)
             Path of the json file with the model description
         """
-
         with open(path) as json_file:
-            data = json.load(json_file)
-            return data
+            return json.load(json_file)
 
     def __add_dimensions(self, data, dimensions):
         for e in data['entities']:
@@ -173,15 +172,14 @@ class Model_information:
                 name = a['adj_vector']
                 a['extra_parameters'] = dimensions[name]
 
+
     # validate that all the nn_name are correct. Validate that all source and destination entities are correct. Validate that all the inputs in the message function are correct
     def __validate_model_description(self, data):
         steps = data['message_passing']['architecture']
 
-        src_names = []
-        dst_names = []
-        called_nn_names = []
+        src_names, dst_names, called_nn_names, input_names = [], [], [], []
         output_names = ['hs_source', 'hs_dest', 'edge_params']
-        input_names = []
+
         for s in steps:
             s = s['mp_step']
             for m in s:  # for every message-passing
@@ -198,15 +196,12 @@ class Model_information:
                                 output_names.append(op['output_name'])
 
         readout_op = data['readout']
-        for op in readout_op:
-            if op['type'] == 'predict':
-                called_nn_names.append(op['nn_name'])
+        called_nn_names = [op['nn_name'] for op in readout_op if op['type'] == 'predict']
 
         # now check the entities
         entity_names = [a['name'] for a in data['entities']]
         nn_names = [a['nn_name'] for a in data['neural_networks']]
         try:
-
             for a in src_names:
                 if a not in entity_names:
                     raise Exception(
@@ -235,10 +230,8 @@ class Model_information:
 
     def __get_nn_mapping(self, models):
         result = {}
-
         for m in models:
             result[m['nn_name']] = m
-
         return result
 
     def __get_entities(self, entities):
@@ -248,13 +241,10 @@ class Model_information:
         entities:    dict
            Dictionary with the definition of each entity
         """
+        return [Entity(e) for e in entities]
 
-        l = [Entity(e) for e in entities]
-        return l
 
-    # substitutes the referenced name by the correct architecture
     def __add_nn_architecture(self, m):
-
         # we need to find out what the input dimension is
 
         # add the message_creation nn architecture
@@ -289,13 +279,7 @@ class Model_information:
         inst:    dict
            Dictionary with the definition of each message passing
         """
-        mp_instances = []
-
-        for step in inst:
-            aux = [Message_Passing(self.__add_nn_architecture(m)) for m in step['mp_step']]
-            mp_instances.append([step['step_name'], aux])
-
-        return mp_instances
+        return [[step['step_name'], [Message_Passing(self.__add_nn_architecture(m)) for m in step['mp_step']]] for step in inst]
 
     def __calc_comb_options(self, data):
         """
@@ -347,24 +331,19 @@ class Model_information:
         result = []
         for op in output_operations:
             if op['type'] == 'predict':
-                r = Predicting_operation(self.__add_readout_architecture(op))
-                result.append(r)
+                result.append(Predicting_operation(self.__add_readout_architecture(op)))
 
             elif op['type'] == 'pooling':
-                r = Pooling_operation(op)
-                result.append(r)
+                result.append(Pooling_operation(op))
 
             elif op['type'] == 'product':
-                r = Product_operation(op)
-                result.append(r)
+                result.append(Product_operation(op))
 
             elif op['type'] == 'neural_network':
-                r = Readout_nn(self.__add_readout_architecture(op))
-                result.append(r)
+                result.append(Readout_nn(self.__add_readout_architecture(op)))
 
             elif op['type'] == 'extend_adjacencies':
-                r = Extend_adjacencies(op)
-                result.append(r)
+                result.append(Extend_adjacencies(op))
 
         return result
 
@@ -392,8 +371,7 @@ class Model_information:
             dict[entity.name] = entity.hidden_state_dimension
 
         # add the size of additional inputs if needed
-        dict = {**dict, **dimensions}
-        return dict
+        return {**dict, **dimensions}
 
     # ----------------------------------------------------------------
     # PUBLIC FUNCTIONS GETTERS
@@ -417,27 +395,19 @@ class Model_information:
         return sources
 
     def get_interleave_sources(self):
-        result = []
-        interleave_steps = []
-        for k, v in self.comb_op.items():
-            for c in v:
-                if isinstance(c, Interleave_comb_mp):
-                    interleave_steps.append([k, c.dst_name])
+        interleave_steps = [[step, c.dst_name] for step,comb_msgs in self.comb_op.items() for c in comb_msgs if isinstance(c,Interleave_comb_mp)]
 
-        for step in self.mp_instances:
-            for m in step[1]:
-                if m.type == "multi_source" and m.aggregation == 'combination' and [step[0],
-                                                                                    m.destination_entity] in interleave_steps:
-                    result.append([m.source_entity, m.destination_entity])
-        return result
+        return [[m.source_entity, m.destination_entity] for step in self.mp_instances for m in step[1]
+                  if (m.type == 'multi_source' and [step[0],m.destination_entity] in interleave_steps)]
+
 
     def get_mp_iterations(self):
         return self.iterations_mp
 
+
     def get_interleave_tensors(self):
         if self.comb_op != {}:
-            result = [[m.combination_definition, m.dst_name] for messages in self.comb_op.values() for m in messages if isinstance(m, Interleave_comb_mp)  ]
-            return result
+            return [[m.combination_definition, m.dst_name] for messages in self.comb_op.values() for m in messages if isinstance(m, Interleave_comb_mp)  ]
         else:
             return []
 
@@ -463,26 +433,13 @@ class Model_information:
         return result_names, result_norm, result_denorm
 
     def get_all_features(self):
-        all_features = []
-        for e in self.entities:
-            all_features += e.features
-
-        return all_features
+        return reduce(lambda accum, e: accum + e.features, self.entities, [])
 
     def get_feature_size(self, feature):
-        if 'size' in feature:
-            return feature['size']
-        else:
-            return 1
+        return feature['size'] if 'size' in feature else 1
 
     def get_adjecency_info(self):
-        result = []
-        for step in self.mp_instances:
-            for instance in step[1]:
-                result.append(instance.get_instance_info())
-
-        return result
-
+        return [instance.get_instance_info() for step in self.mp_instances for instance in step[1]]
 
     def get_additional_input_names(self):
         output_names = set()

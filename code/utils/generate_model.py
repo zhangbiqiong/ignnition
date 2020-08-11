@@ -28,6 +28,7 @@ from tensorflow.keras.optimizers import *
 from tensorflow.keras.optimizers.schedules import *
 from keras import backend as K
 from auxilary_classes import *
+from functools import reduce
 
 
 def set_model_info(model_description):
@@ -114,8 +115,7 @@ def input_fn(data_dir, shuffle=False, training=True):
         additional_input = model_info.get_additional_input_names()
         unique_additional_input = [a for a in additional_input if a not in feature_list]
 
-        types = {}
-        shapes = {}
+        types, shapes = {}, {}
         feature_names = []
 
         for a in unique_additional_input:
@@ -220,16 +220,13 @@ class ComnetModel(tf.keras.Model):
                     # Creation of the message creation models
                     with tf.name_scope('message_creation_models') as _:
                         operations = message.message_formation
-
                         counter = 0
+
                         for operation in operations:
                             if operation.type == 'feed_forward_nn':
                                 src_name = message.source_entity
                                 dst_name = message.destination_entity
                                 var_name = src_name + "_to_" + dst_name + '_message_creation_' + str(counter)
-                                # find out what the input dimension is (need to keep track of previous ones)
-
-                                # input_dimension = int(self.input_dimensions[src_entity] + self.input_dimensions[dst_entity] + message.message_formation.num_extra_parameters)
 
                                 # Find out the dimension of the model
                                 input_nn = operation.input
@@ -248,9 +245,9 @@ class ComnetModel(tf.keras.Model):
                                 setattr(self, str(var_name) + "_layer_" + str(0),
                                         tf.keras.Input(shape=(input_dim,)))
 
-                                layer_counter = 1
-                                output_shape = 0
+                                layer_counter, output_shape = 1, 0
                                 layers = operation.model.layers
+
                                 for l in layers:
                                     l_previous = getattr(self, str(var_name) + "_layer_" + str(layer_counter - 1))
 
@@ -279,14 +276,15 @@ class ComnetModel(tf.keras.Model):
 
                             counter += 1
 
-                            # DEFINE HERE MORE OPERATIONS FOR MESSAGE CRETION FUNCTION
-
+                    # -----------------------------
                     # Creation of the update models
                     with tf.name_scope('update_models') as _:
 
                         # Treat the individual message passings
                         if message.type == 'single_source':
                             update_model = message.update
+
+                            # ------------------------------
                             # create the recurrent update models
                             if update_model.type == "recurrent_nn":
                                 dst_name = message.destination_entity
@@ -301,38 +299,31 @@ class ComnetModel(tf.keras.Model):
                                         ' is not correctly defined. Check keras documentation to make sure all the parameters are correct.')
                                     sys.exit(1)
 
-
+                            # ----------------------------------
                             # create the feed-forward upddate models
                             else:
                                 model = update_model.model
-                                src_name = message.source_entity
-                                dst_name = message.destination_entity
+                                src_name, dst_name = message.source_entity, message.destination_entity
                                 var_name = dst_name + "_ff_update"
 
                                 with tf.name_scope(dst_name + '_ff_update') as _:
-
-                                    # input is the aggregated hs of the sources concat with the current dest. hs
-                                    input_dim = int(self.dimensions[src_name]) + int(
-                                        self.dimensions[dst_name])
+                                    dst_dim = int(self.dimensions[dst_name])
+                                    input_dim = int(self.dimensions[src_name]) + dst_dim
 
                                     setattr(self, str(var_name) + "_layer_" + str(0),
                                             tf.keras.Input(shape=(input_dim,)))
 
                                     layer_counter = 1
                                     layers = model.layers
-                                    n_layers = len(layers)
-                                    for j in range(n_layers):
+                                    n = len(layers)
+                                    for j in range(n):
                                         l = layers[j]
                                         l_previous = getattr(self, str(var_name) + "_layer_" + str(layer_counter - 1))
                                         try:
                                             # if it's the last layer, set the output units to 1
-                                            if j == n_layers - 1:
-                                                layer = l.get_tensorflow_object_last(l_previous, int(
-                                                    self.dimensions[dst_name]))
-                                            else:
-                                                layer = l.get_tensorflow_object(l_previous)
-
+                                            layer = l.get_tensorflow_object_last(l_previous, dst_dim) if j==n-1 else l.get_tensorflow_object(l_previous)
                                             setattr(self, str(var_name) + "_layer_" + str(layer_counter), layer)
+
                                         except:
                                             tf.compat.v1.logging.error(
                                                 'IGNNITION: The layer ' + str(
@@ -354,8 +345,7 @@ class ComnetModel(tf.keras.Model):
             for step in combined_models:
                 messages_to_combine = combined_models[step]
                 for mp in messages_to_combine:
-                    dst_name = mp.dst_name
-                    model_op = mp.update
+                    dst_name, model_op = mp.dst_name, mp.update
 
                     if model_op.type == 'recurrent_nn':
                         try:
@@ -372,14 +362,13 @@ class ComnetModel(tf.keras.Model):
                     else:  # if it's a feed_forward
                         try:
                             dst_name = mp.destination_entity
-
-                            # need to calculate the input size (size of the messages)    #DO THIS WHEN CREATING THE CLASS?
                             sources = model_info.get_combined_mp_sources(dst_name, step)
-                            if mp.message_combination == 'concat' and mp.concat_axis == 2:  # if we are concatenating by message
-                                message_dimensionality = 0
-                                for s in sources:
-                                    message_dimensionality += int(self.dimensions[s])
 
+                            if mp.message_combination == 'concat' and mp.concat_axis == 2:  # if we are concatenating by message
+                                message_dimensionality = reduce(lambda accum, s: accum + int(self.dimensions[s]), sources, 0)   #CHECK
+                                #message_dimensionality = 0
+                                #for s in sources:
+                                #    message_dimensionality += int(self.dimensions[s])
 
                             else:  # all the messages are the same size. So take the first for instance
                                 message_dimensionality = int(self.dimensions[sources[0]])
@@ -389,23 +378,20 @@ class ComnetModel(tf.keras.Model):
                             with tf.name_scope(dst_name + '_ff_update') as _:
 
                                 # input is the aggregated hs of the sources concat with the current dest. hs
-                                input_dim = message_dimensionality + int(self.dimensions[dst_name])
+                                dst_dim = int(self.dimensions[dst_name])
+                                input_dim = message_dimensionality + dst_dim
 
                                 setattr(self, str(var_name) + "_layer_" + str(0),
                                         tf.keras.Input(shape=(input_dim,)))
                                 layer_counter = 1
                                 layers = model_op.model.layers
-                                n_layers = len(layers)
-                                for j in range(n_layers):
+                                n = len(layers)
+                                for j in range(n):
                                     l = layers[j]
                                     l_previous = getattr(self, str(var_name) + "_layer_" + str(layer_counter - 1))
                                     try:
                                         # if it's the last layer, set the output units to 1
-                                        if j == n_layers - 1:
-                                            layer = l.get_tensorflow_object_last(l_previous, int(
-                                                self.dimensions[dst_name]))
-                                        else:
-                                            layer = l.get_tensorflow_object(l_previous)
+                                        layer = l.get_tensorflow_object_last(l_previous, dst_dim) if j==n-1 else l.get_tensorflow_object(l_previous)
 
                                         setattr(self, str(var_name) + "_layer_" + str(layer_counter), layer)
                                     except:
@@ -436,11 +422,8 @@ class ComnetModel(tf.keras.Model):
             for operation in readout_operations:
                 if operation.type == "predict" or operation.type == 'neural_network':
                     with tf.name_scope("readout_architecture"):
-
                         # input_dimension = int(self.input_dimensions[operation.input[0]])
-                        input_dim = 0
-                        for i in operation.input:
-                            input_dim += int(self.dimensions[i])
+                        input_dim = reduce(lambda accum, i: accum + int(self.dimensions[i]), operation.input, 0)
 
                         setattr(self, 'readout_model' + str(counter) + "_layer_" + str(0),
                                 tf.keras.Input(shape=(input_dim,)))
@@ -448,8 +431,7 @@ class ComnetModel(tf.keras.Model):
                         layer_counter = 1
                         layers = operation.architecture.layers
                         for l in layers:
-                            l_previous = getattr(self,
-                                                 'readout_model' + str(counter) + "_layer_" + str(layer_counter - 1))
+                            l_previous = getattr(self,'readout_model' + str(counter) + "_layer_" + str(layer_counter - 1))
                             try:
                                 layer = l.get_tensorflow_object(l_previous)
                                 setattr(self, 'readout_model' + str(counter) + "_layer_" + str(layer_counter), layer)
@@ -473,18 +455,17 @@ class ComnetModel(tf.keras.Model):
 
 
                 elif operation.type == 'pooling':
-                    if operation.type_pooling == 'sum' or operation.type_pooling == 'max' or operation.type_pooling == 'mean':
-                        dimensionality = self.dimensions[operation.input[0]]
-
-                    else:
-                        dimensionality = 1
+                    dimensionality = self.dimensions[operation.input[0]]
 
                     # add the new dimensionality to the input_dimensions tensor
                     self.dimensions[operation.output_name] = dimensionality
 
-
                 elif operation.type == 'product':
-                    self.dimensions[operation.output_name] = self.dimensions[operation.input[0]]
+                    if operation.type_product == 'element_wise':
+                        self.dimensions[operation.output_name] = self.dimensions[operation.input[0]]
+
+                    elif operation.type_product == 'dot_product':
+                        self.dimensions[operation.output_name] = 1
 
                 elif operation.type == 'extend_adjacencies':
                     self.dimensions[operation.output_name[0]] = self.dimensions[operation.input[0]]
@@ -552,14 +533,12 @@ class ComnetModel(tf.keras.Model):
 
                         # given one message from a given step
                         for message in step[1]:
-                            src_name = message.source_entity
-                            dst_name = message.destination_entity
+                            src_name, dst_name = message.source_entity, message.destination_entity
 
                             with tf.name_scope(src_name + 's_to_' + dst_name + 's') as _:
 
                                 # create the messages
-                                src_idx = input['src_' + message.adj_vector]
-                                dst_idx = input['dst_' + message.adj_vector]
+                                src_idx, dst_idx = input['src_' + message.adj_vector], input['dst_' + message.adj_vector]
                                 states = getattr(self, str(src_name) + '_state')
                                 num_dst = input['num_' + dst_name]
 
@@ -571,10 +550,9 @@ class ComnetModel(tf.keras.Model):
                                 # use a ff if so needed
                                 with tf.name_scope('create_message_' + src_name + '_to_' + dst_name) as _:
                                     message_creation_models = message.message_formation
-
                                     counter = 0
-                                    for model in message_creation_models:
 
+                                    for model in message_creation_models:
                                         if model.type == 'feed_forward_nn':
                                             with tf.name_scope('apply_nn_' + str(counter)) as _:
                                                 var_name = src_name + "_to_" + dst_name + '_message_creation_' + str(
@@ -583,42 +561,22 @@ class ComnetModel(tf.keras.Model):
                                                 first = True
                                                 with tf.name_scope('create_input') as _:
                                                     for i in model.input:
-                                                        if i == 'hs_source':
-                                                            if first:
-                                                                input_nn = src_hs
-                                                                first = False
-
-                                                            else:
-                                                                input_nn = tf.concat([input_nn, src_hs], axis=1)
-
+                                                        if i=='hs_source':
+                                                            new_input = src_hs
                                                         elif i == 'hs_dest':
-                                                            h_states_dest = tf.gather(dst_hs, dst_idx)
-
-                                                            if first:
-                                                                input_nn = h_states_dest
-                                                                first = False
-
-                                                            else:
-                                                                input_nn = tf.concat([input_nn, h_states_dest], axis=1)
-
-
+                                                            new_input = tf.gather(dst_hs, dst_idx)
                                                         elif i == 'edge_params':
-                                                            edge_params = tf.cast(input['params_' + message.adj_vector],
+                                                            new_input = tf.cast(input['params_' + message.adj_vector],
                                                                                   tf.float32)
+                                                        else:
+                                                            new_input = getattr(self, i + '_var')
 
-                                                            if first:
-                                                                input_nn = edge_params
-                                                                first = False
-                                                            else:
-                                                                input_nn = tf.concat([input_nn, edge_params], axis=1)
+                                                        if first:
+                                                            first = False
+                                                            input_nn = new_input
+                                                        else:
+                                                            input_nn = tf.concat([input_nn, new_input], axis=1)
 
-                                                        else:  # it is the output of a previous operation
-                                                            other_tensor = getattr(self, i + '_var')
-                                                            if first:
-                                                                input_nn = other_tensor
-                                                                first = False
-                                                            else:
-                                                                input_nn = tf.concat([input_nn, other_tensor], axis=1)
 
                                                 with tf.name_scope('create_message') as _:
                                                     result = message_creator(input_nn)
@@ -725,29 +683,25 @@ class ComnetModel(tf.keras.Model):
                                     # recurrent update
                                     if update_model.type == "recurrent_nn":
                                         agg = message.aggregation
+                                        old_state = getattr(self, str(dst_name) + '_state')
+                                        model = getattr(self, str(dst_name) + '_update')
 
                                         # if the aggregation was a sum
                                         if agg == 'sum' or agg == 'attention' or agg == 'convolutional':
                                             with tf.name_scope("update_sum_" + dst_name) as _:
-                                                old_state = getattr(self, str(dst_name) + '_state')
-                                                model = getattr(self, str(dst_name) + '_update')
-
                                                 new_state, _ = model(source_input, [old_state])
-                                                setattr(self, str(dst_name) + '_state', new_state)
-
 
                                         # if the aggregation was ordered
                                         elif agg == 'ordered':
                                             with tf.name_scope("update_ordered_" + dst_name) as _:
-                                                old_state = getattr(self, str(dst_name) + '_state')
-                                                model = getattr(self, str(dst_name) + '_update')
                                                 gru_rnn = tf.keras.layers.RNN(model, return_sequences=True,
                                                                               return_state=True,
                                                                               name=str(dst_name) + '_update')
                                                 outputs, new_state = gru_rnn(inputs=source_input,
                                                                              initial_state=old_state,
                                                                              mask=tf.sequence_mask(lens))
-                                                setattr(self, str(dst_name) + '_state', new_state)
+
+                                        setattr(self, str(dst_name) + '_state', new_state)
 
 
                                     # feed-forward update:
@@ -829,23 +783,23 @@ class ComnetModel(tf.keras.Model):
                                             if first:
                                                 first = False
                                                 src_input = s  # destinations x max_of_sources_to_dest x dim_source
-                                                comb_src_states = src_states
-                                                comb_dst_idx = dst_idx
-                                                comb_seq = seq
+                                                comb_src_states, comb_dst_idx, comb_seq = src_states, dst_idx, seq
                                                 final_len = lens
+
+                                                # dimension of one source (all must be the same)
                                                 F1 = int(self.dimensions[src_name])
+
                                             else:
-                                                src_input = tf.concat([src_input, s],
-                                                                      axis=1)  # destinations x max_of_sources_to_dest_concat x dim_source
-                                                comb_src_states = tf.concat([comb_src_states, src_states],
-                                                                            axis=0)  # obtain all the source states
+                                                # destinations x max_of_sources_to_dest_concat x dim_source
+                                                src_input = tf.concat([src_input, s],axis=1)
+                                                comb_src_states = tf.concat([comb_src_states, src_states],axis=0)
                                                 comb_dst_idx = tf.concat([comb_dst_idx, dst_idx], axis=0)
 
                                                 # lens of each src-dst value
                                                 aux_lens = tf.gather(lens, dst_idx)
                                                 aux_seq = seq + aux_lens  # sum to the sequences the current length for each dest
-
                                                 comb_seq = tf.concat([comb_seq, aux_seq], axis=0)
+
                                                 final_len = tf.math.add(final_len, lens)
 
                                         elif isinstance(m, Interleave_comb_mp):
@@ -857,15 +811,14 @@ class ComnetModel(tf.keras.Model):
                                                     indices = indices_source
                                                     final_len = lens
                                                 else:
-                                                    src_input = tf.concat([src_input, s],
-                                                                          axis=1)  # destinations x max_of_sources_to_dest_concat x dim_source
+                                                    # destinations x max_of_sources_to_dest_concat x dim_source
+                                                    src_input = tf.concat([src_input, s],axis=1)
                                                     indices = tf.stack([indices, indices_source], axis=0)
-                                                    final_len = tf.math.add(final_len,
-                                                                            lens)  # check this len? We just sum the max of each of them?
+                                                    final_len = tf.math.add(final_len,lens)
+
 
                                     # ------------------------------
                                     # perform the final aggregation with the accum inputs
-
                                     src_input = src_input.to_tensor()
 
                                     if isinstance(m, Interleave_comb_mp):

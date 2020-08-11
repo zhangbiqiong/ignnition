@@ -142,11 +142,7 @@ def generator(dir, feature_names, output_names, adj_names, interleave_names, add
                             'A list for the adjecency vector named "' + name + '" was not found although being expected.')
                     else:
                         adjecency_lists = sample[name]
-
-                        sources_idx = []
-                        dest_idx = []
-                        seq = []
-                        parameters = []
+                        src_idx, dst_idx, seq, parameters = [], [], [], []
 
                         # ordered always by destination. (p1: [l1,l2,l3], p2:[l4,l5,l6]...
                         items = adjecency_lists.items()
@@ -157,20 +153,17 @@ def generator(dir, feature_names, output_names, adj_names, interleave_names, add
                                     '.\n However, "' + destination + '" was found which is of type "' + entities[
                                         destination] + '" instead of ' + dst_entity)
 
-                            if ordered == 'True':
-                                seq += range(0, len(sources))
+                            if ordered == 'True':   seq += range(0, len(sources))
 
                             # check if this adjacency contains extra parameters. This would mean that the sources array would be of shape p0:[[l0,params],[l1,params]...]
                             if isinstance(sources[0], list):
                                 for s in sources:
                                     src_name = s[0]
-                                    sources_idx.append((indices[src_name]))
-                                    dest_idx.append(indices[destination])
+                                    src_idx.append((indices[src_name]))
+                                    dst_idx.append(indices[destination])
 
                                     # add the parameters. s[1] should indicate its name
-                                    if uses_parameters == 'True':
-                                        params = s[1]
-                                        parameters.append(params)
+                                    if uses_parameters == 'True':   parameters.append(s[1])
 
                             # in case no extra parameters are provided
                             else:
@@ -181,11 +174,11 @@ def generator(dir, feature_names, output_names, adj_names, interleave_names, add
                                             '.\n However, "' + destination + '" was found which is of type "' +
                                             entities[destination] + '" instead of "' + src_entity)
 
-                                    sources_idx.append((indices[s]))
-                                    dest_idx.append(indices[destination])
+                                    src_idx.append((indices[s]))
+                                    dst_idx.append(indices[destination])
 
-                        data['src_' + name] = sources_idx
-                        data['dst_' + name] = dest_idx
+                        data['src_' + name] = src_idx
+                        data['dst_' + name] = dst_idx
 
                         # add sequence information
                         if ordered == 'True':
@@ -193,14 +186,12 @@ def generator(dir, feature_names, output_names, adj_names, interleave_names, add
                             dict['seq_' + src_entity + '_' + dst_entity] = seq
 
                         # remains to check that all adjacencies of the same type have params or not (not a few of them)!!!!!!!!!!
-                        if parameters != []:
-                            data['params_' + name] = parameters
+                        if parameters != []:    data['params_' + name] = parameters
 
                 # define the graph nodes
                 items = num_nodes.items()
                 for entity, n_nodes in items:
                     data['num_' + entity] = n_nodes
-
 
                 # obtain the sequence for the combined message passing. One for each source entity sending to the destination.
                 for i in interleave_names:
@@ -208,11 +199,9 @@ def generator(dir, feature_names, output_names, adj_names, interleave_names, add
                     interleave_definition = sample[name]
 
                     involved_entities = {}
-
-                    total_size = 0
-                    n_total = 0
-                    counter = 0
                     total_sequence = []
+                    total_size, n_total, counter = 0, 0, 0
+
                     for entity in interleave_definition:
                         total_size += 1
                         if entity not in involved_entities:
@@ -222,21 +211,22 @@ def generator(dir, feature_names, output_names, adj_names, interleave_names, add
                             n_total += max(seq) + 1  # superior limit of the size of any destination
                             counter += 1
 
-                        total_sequence.append(
-                            involved_entities[entity])  # obtain all the original definition in a numeric format
+                        # obtain all the original definition in a numeric format
+                        total_sequence.append(involved_entities[entity])
 
-                    repetitions = math.ceil(float(
-                        n_total) / total_size)  # we exceed the length for sake to make it multiple. Then we will cut it
+                        # we exceed the length for sake to make it multiple. Then we will cut it
+                    repetitions = math.ceil(float(n_total) / total_size)
                     result = np.array((total_sequence * repetitions)[:n_total])
 
                     for entity in involved_entities:
                         id = involved_entities[entity]
                         data['indices_' + entity + '_to_' + dst_entity] = np.where(result == id)[0].tolist()
 
-                if not training:
-                    yield data
-                else:
-                    yield data, output
+                yield data if not training else data, output
+                # if not training:
+                #    yield data
+                # else:
+                #    yield data, output
 
 
         except KeyboardInterrupt:

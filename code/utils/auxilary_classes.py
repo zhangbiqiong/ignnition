@@ -92,12 +92,9 @@ class Entity:
         self.features = []
 
         if 'features' in dict:
-            for f in dict['features']:
-                aux = Feature(f)
-                self.features.append(aux)
+            self.features = [Feature(f) for f in dict['features']]
 
     def get_entity_total_feature_size(self):
-
         total = 0
         for f in self.features:
             total += f.get_size()
@@ -105,11 +102,7 @@ class Entity:
         return total
 
     def get_features_names(self):
-        result = []
-        for f in self.features:
-            result.append(f.get_name())
-
-        return result
+        return [f.get_name() for f in self.features]
 
     def add_feature(self, f):
         self.features.append(f)
@@ -170,7 +163,7 @@ class Combined_mp:
             Dictionary with the required attributes
         """
         self.dst_name = dict['destination_entity']
-        #self.message_combination = dict['message_combination']
+        # self.message_combination = dict['message_combination']
 
         # define the update
         params = dict['update']
@@ -185,7 +178,6 @@ class Combined_mp:
 class Interleave_comb_mp(Combined_mp):
     def __init__(self, dict):
         super(Interleave_comb_mp, self).__init__(dict)
-
         self.combination_definition = dict['combination']['interleave_definition']
 
 
@@ -199,7 +191,6 @@ class Aggregated_comb_mp(Combined_mp):
     def __init__(self, dict):
         super(Aggregated_comb_mp, self).__init__(dict)
         self.combined_aggregation = dict['combination']['combined_aggregation']
-
 
 
 class Message_Passing:
@@ -271,17 +262,14 @@ class Message_Passing:
         self.source_entity = m['source_entity']
         self.adj_vector = m['adj_vector']
         self.extra_parameters = m['extra_parameters']
+        self.message_formation = self.create_message_formation(m['message']) if 'message' in m else [
+            Operation("direct_assignation")]
 
         if 'aggregation' in m:
             self.aggregation = m['aggregation']
 
         if 'update' in m:
             self.update = self.create_update(m['update'])
-
-        if 'message' in m:
-            self.message_formation = self.create_message_formation(m['message'])
-        else:
-            self.message_formation = [Operation("direct_assignation")]
 
     def create_update(self, u):
         if u["type"] == 'neural_network':
@@ -297,9 +285,7 @@ class Message_Passing:
         type:    str
             Indicates if it uses a feed-forward, or the message is simply its hidden state
         """
-        if type == 'yes':
-            return 'feed_forward'
-        return 'hidden_state'
+        return 'feed_forward' if type == 'yes' else 'hidden_state'
 
     def create_message_formation(self, operations):
         result = []
@@ -669,11 +655,7 @@ class Readout_nn(Readout_operation):
         if 'input' in op:
             self.input = op['input']
 
-        if 'output_name' in op:
-            self.output_name = op['output_name']
-
-        else:
-            self.output_name = 'None'
+        self.output_name = op['output_name'] if 'output_name' in op else 'None'
 
         # we need somehow to find the number of extra_parameters beforehand
         self.architecture = Feed_forward_model({'architecture': op['architecture']}, model_role="readout")

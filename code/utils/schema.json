@@ -324,7 +324,7 @@
                     {
                         "description": "Type of operation to do pooling with",
                         "type": "string",
-                        "enum": ["sum", "max", "mean","dot_product"]
+                        "enum": ["sum", "max", "mean"]
                     },
                     "type_product":
                     {

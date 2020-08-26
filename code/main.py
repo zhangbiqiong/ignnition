@@ -23,6 +23,14 @@ import tensorflow as tf
 sys.path.append('./utils/')
 import framework_operations as framework
 
+
+def log(feature, feature_name):
+    return tf.math.log(feature)
+
+def exp(feature, feature_name):
+    return tf.math.exp(feature)
+
+
 def normalization_queue_size(feature, feature_name):
     if feature_name == 'delay':
         feature = (tf.math.log(feature) + 1.78) / 0.93

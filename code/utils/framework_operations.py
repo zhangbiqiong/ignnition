@@ -48,6 +48,13 @@ def create_model():
 
 
 def find_dataset_dimensions(path):
+    """
+    Parameters
+    ----------
+    path:    str
+      Path to find the dataset
+    """
+
     sample = glob.glob(str(path) + '/*.tar.gz')[0]  # choose one single file to extract the dimensions
     try:
         tar = tarfile.open(sample, 'r:gz')  # read the tar files
@@ -61,18 +68,20 @@ def find_dataset_dimensions(path):
         dimensions = {}
 
         for k, v in sample_data.items():
-            if not isinstance(v, dict):  # if it's a feature
+            # if it's a feature
+            if not isinstance(v, dict):
                 if isinstance(v, list) and isinstance(v[0], list):
                     dimensions[k] = len(v[0])
                 else:
                     dimensions[k] = 1
 
-            elif v:  # if its either the entity or an adjacency (it is a dictionary, that is non-empty)
-                first_key = list(v.keys())[0]
-                element = v[first_key]
+            # if its either the entity or an adjacency (it is a dictionary, that is non-empty)
+            elif v:
+                first_key = list(v.keys())[0]   # first key of the list
+                element = v[first_key]  # first value of the list (another list)
                 if (not isinstance(element[0], str)) and isinstance(element[0], list):
-                    dimensions[k] = len(
-                        element[0][1])  # the element[0][1] is the adjacency node. The second is the edge information
+                    # the element[0][0] is the adjacency node. The element[0][1] is the edge information
+                    dimensions[k] = len(element[0][1])
                 else:
                     dimensions[k] = 0
         return dimensions
@@ -83,6 +92,13 @@ def find_dataset_dimensions(path):
 
 
 def str_to_bool(a):
+    """
+    Parameters
+    ----------
+    a:    str
+       Input
+    """
+
     if a == 'True':
         return True
     else:
@@ -136,7 +152,7 @@ def train_and_evaluate(model):
     )
 
     train_spec = tf.estimator.TrainSpec(
-        input_fn=lambda: input_fn(filenames_train, shuffle=True),
+        input_fn=lambda: input_fn(filenames_train, shuffle=str_to_bool(CONFIG['TRAINING_OPTIONS']['shuffle_train_samples'])),
         max_steps=int(CONFIG['TRAINING_OPTIONS']['train_steps']))
 
     eval_spec = tf.estimator.EvalSpec(
@@ -184,8 +200,9 @@ def predict(model_info):
         it = input_fn(data_path,
                       training=False)  # this should not return a label since we might not have one!!!!!!!!!!!!
         features = it.get_next()
-        predictions = model(features,
-                            training=False)  # this predictions still need to be denormalized (or to do the predictions with the estimators)
+
+        # this predictions still need to be denormalized (or to do the predictions with the estimators)
+        predictions = model(features, training=False)
 
         # automatic denormalization
         output_names, _, output_denormalizations = model_info.get_output_info()  # for now suppose we only have one output type

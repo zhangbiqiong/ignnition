@@ -62,7 +62,7 @@
                     "type": "number",
                     "exclusiveMinimum": 0
                 },
-                "architecture": 
+                "stages": 
                 {
                     "type": "array",
                     "items": 
@@ -71,82 +71,130 @@
                         "type": "object",
                         "properties": 
                         {
-                            "step_name": {
+                            "stage_name": {
                                 "type": "string"
                             },
-                            "mp_step":
+                            "stage_mp":
                             {
                                 "type": "array",    
                                 "items": {
                                     "description": "Definition of a single essage passing from source to destination",
                                     "type": "object",
                                     "properties": {
-                                        "type": {
-                                            "description": "Type of message passing",
-                                            "type": "string",
-                                            "enum": ["single_source", "multi_source"]
-                                        },
-                                        "source_entity": {
-                                            "description": "Name of the source entity sending the messages",
-                                            "type": "string"
-                                        },
                                         "destination_entity": {
                                             "description": "Name of the destination entity receiving the messages",
                                             "type": "string"
                                         },
-                                        "adj_vector": {
-                                            "description": "Name of the adjacency list which defines the adjacencies from the source to the destiantion entity.",
-                                            "type": "string"
-                                        },
-                                        "message":
+                                        "source_entities":
                                         {
                                             "type": "array",
-                                            "items": {
-                                                "description": "Define each of the operations for the message creation function",
+                                            "items":
+                                            {
+                                                "description": "Definition of each source entity",
                                                 "type": "object",
                                                 "properties":
                                                 {
-                                                    "type":
+                                                    "name":
                                                     {
-                                                        "description": "Type of operation to apply",
-                                                        "type": "string",
-                                                        "enum": ["neural_network", "direct_assignation"]
-                                                    },
-                                                    "nn_name":
-                                                    {
-                                                        "description": "Reference the neural network to be used",
+                                                        "description": "Name of the source entity",
                                                         "type": "string"
                                                     },
-                                                    "input":
+                                                    "adj_vector": {
+                                                        "description": "Name of the adjacency list which defines the adjacencies from the source to the destiantion entity.",
+                                                        "type": "string"
+                                                    },
+                                                    "message":
                                                     {
-                                                        "description": "Input of this operation",
                                                         "type": "array",
-                                                        "items":{
-                                                            "description": "define the inputs",
-                                                            "type": "string"
+                                                        "items": 
+                                                        {
+                                                            "description": "Define each of the operations for the message creation function",
+                                                            "type": "object",
+                                                            "properties":
+                                                            {
+                                                                "type":
+                                                                {
+                                                                    "description": "Type of operation to apply",
+                                                                    "type": "string",
+                                                                    "enum": ["neural_network", "direct_assignation"]
+                                                                },
+                                                                "nn_name":
+                                                                {
+                                                                    "description": "Reference the neural network to be used",
+                                                                    "type": "string"
+                                                                },
+                                                                "input":
+                                                                {
+                                                                    "description": "Input of this operation",
+                                                                    "type": "array",
+                                                                    "items":{
+                                                                        "description": "define the inputs",
+                                                                        "type": "string"
+                                                                    }
+                                                                },
+                                                                "output_name":
+                                                                {
+                                                                    "description": "Define an output name for the result, to reference it later",
+                                                                    "type": "string"
+                                                                }
+                                                            },
+                                                            "if": {
+                                                                "properties": { "type": { "const": "neural_network" } }
+                                                            },
+                                                            "then": {
+                                                                "required": ["nn_name", "input"]
+                                                            },
+                                                            "required": ["type"]
+
                                                         }
-                                                    },
-                                                    "output_name":
-                                                    {
-                                                        "description": "Define an output name for the result, to reference it later",
-                                                        "type": "string"
+
                                                     }
                                                 },
-                                                "if": {
-                                                    "properties": { "type": { "const": "neural_network" } }
-                                                },
-                                                "then": {
-                                                    "required": ["nn_name", "input"]
-                                                },
-                                                "required": ["type"]
-
+                                                "required": ["name", "adj_vector", "message"]
                                             }
-                                            
                                         },
-                                        "aggregation": {
+                                        "aggregation": 
+                                        {
                                             "description": "How the messages are combined by the destination source",
-                                            "type": "string",
-                                            "enum": ["sum", "ordered", "combination", "attention"]
+                                            "type": "object",
+                                            "properties": 
+                                            {
+                                                "type": 
+                                                {
+                                                    "type": "string",
+                                                    "enum": ["sum", "ordered", "attention", "concat", "interleave"]
+                                                },
+                                                "concat_axis": {
+                                                    "description": "Define how to concatenate the messages together",
+                                                    "type": "integer",
+                                                    "enum": [1, 2]
+                                                },
+                                                "interleave_definition": {
+                                                    "description": "Descrives how the interleaving is done",
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "allOf": 
+                                            [
+                                                {
+                                                    "if": {
+                                                        "properties": { "type": { "const": "interleave" } }
+                                                    },
+                                                    "then":
+                                                    {
+                                                        "required": ["interleave_definition"] 
+                                                    }
+                                                },
+                                                {
+                                                    "if": {
+                                                        "properties": { "type": { "const": "concat" } }
+                                                    },
+                                                    "then":
+                                                    {
+                                                        "required": ["concat_axis"] 
+                                                    }
+                                                }
+                                            ]
                                         },
                                         "update": 
                                         {
@@ -187,123 +235,16 @@
                                         }
                                         
                                     },
-                                    "if": {
-                                        "properties": { "type": { "const": "multi_source" } }
-                                    },
-                                    "then": {
-                                        "properties": { "aggregation": {"const": "combination"}}
-                                    },
-                                    "else": {
-                                        "properties": {"aggreagation": {"enum": ["sum", "ordered"]}},
-                                        "required": ["update"]
-                                    },
-                                    "required": ["type", "source_entity", "destination_entity", "aggregation", "message", "adj_vector"]
+                                    "required": [ "source_entities", "destination_entity", "aggregation", "update"]
                                     
                                 }
                             }
                         },
-                        "require": ["mp_step", "step_name"]
-                    }
-                },
-                "combined_message_passing_options":
-                {
-                    "type": "array",
-                    "items":
-                    {
-                        "description": "Combined message passing with several source entities to the same destination entity in the same step of the algorithm.",
-                        "type": "object",
-                        "properties": 
-                        {
-                            "step": {
-                                "description": "Step of the algorithm in which it is found",
-                                "type": "string"
-                            },
-                            "destination_entity": {
-                                "description": "Destination entity receiving messages from several source entities.",
-                                "type": "string"
-                            },
-                            "combination": {
-                                "description": "Describe how the messages are aggregated",
-                                "type": "object",
-                                "properties": 
-                                {
-                                    "combination_type": {
-                                        "description": "Describes how the messages received are combined.",
-                                        "type": "string",
-                                        "enum": ["concat", "interleave", "aggregate_together"]
-                                    },
-                                    "combined_aggregation": {
-                                        "description": "Aggregate all the messages together, treating them all similarly",
-                                        "type": "string",
-                                        "enum": ["sum", "attention"]
-                                    },
-                                    "concat_axis": {
-                                        "description": "Define how to concatenate the messages together",
-                                        "type": "integer",
-                                        "enum": [1, 2]
-                                    },
-                                    "interleave_definition": {
-                                        "description": "Descrives how the interleaving is done",
-                                        "type": "string"
-                                    }
-                                },
-                                "allOf": 
-                                [
-                                    {
-                                        "if": {
-                                            "properties": { "combination_type": { "const": "interleave" } }
-                                        },
-                                        "then":
-                                        {
-                                            "required": ["interleave_definition"] 
-                                        }
-                                    },
-                                    {
-                                        "if": {
-                                            "properties": { "combination_type": { "const": "concat" } }
-                                        },
-                                        "then":
-                                        {
-                                            "required": ["concat_axis"] 
-                                        }
-                                    },
-                                    {
-                                        "if": {
-                                            "properties": { "combination_type": { "const": "aggregate_together" } }
-                                        },
-                                        "then":
-                                        {
-                                            "required": ["combined_aggregation"] 
-                                        }
-                                    }
-                                ]
-                            },
-                            "update": {
-                                "type":"object",
-                                "properties":
-                                {
-                                    "type":
-                                    {
-                                        "description": "Type of operation to be performed",
-                                        "type": "string",
-                                        "enum": ["neural_network", "recurrent_neural_network"]
-                                    },
-                                    "nn_name":
-                                    {
-                                        "description": "Reference the neural network to be used",
-                                        "type": "string"
-                                    }
-                                },
-                                "required": ["nn_name"]   
-                            }
-                        },
-                        
-                        "required": ["step", "destination_entity", "update", "combination"]
+                        "required": ["stage_name", "stage_mp"]
                     }
                 }
-
             },
-            "required": ["num_iterations", "architecture"]
+            "required": ["num_iterations", "stages"]
         },
         "readout":
         {
@@ -520,23 +461,22 @@
                         {
                             "description": "Name of the optimizer.",
                             "type": "string"
-                        }
-                    }
-                },
-                "schedule": 
-                {
-                    "description": "Definition of the schedule to use",
-                    "type": "object",
-                    "properties": 
-                    {
-                        "type": 
+                        },
+                        "schedule": 
                         {
-                            "description": "Name of the schedule type",
-                            "type": "string"
+                            "description": "Definition of the schedule to use",
+                            "type": "object",
+                            "properties": 
+                            {
+                                "type": 
+                                {
+                                    "description": "Name of the schedule type",
+                                    "type": "string"
+                                }
+                            }
                         }
                     }
                 }
-
             },
             "required": ["loss", "optimizer"]
 

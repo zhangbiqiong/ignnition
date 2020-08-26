@@ -75,9 +75,7 @@ def generator(dir, feature_names, output_names, adj_names, interleave_names, add
     dir = dir.decode('ascii')
     feature_names = [x.decode('ascii') for x in feature_names]
     output_names = [o.decode('ascii') for o in output_names]
-    adj_names = [
-        [x[0].decode('ascii'), x[1].decode('ascii'), x[2].decode('ascii'), x[3].decode('ascii'), x[4].decode('ascii')]
-        for x in adj_names]
+    adj_names = [[x[0].decode('ascii'), x[1].decode('ascii'), x[2].decode('ascii'), x[3].decode('ascii')] for x in adj_names]
     interleave_names = [[i[0].decode('ascii'), i[1].decode('ascii')] for i in interleave_names]
     additional_input = [x.decode('ascii') for x in additional_input]
     samples = glob.glob(str(dir) + '/*.tar.gz')
@@ -135,7 +133,7 @@ def generator(dir, feature_names, output_names, adj_names, interleave_names, add
 
                 # create the adjacencies
                 for a in adj_names:
-                    name, src_entity, dst_entity, ordered, uses_parameters = a
+                    name, src_entity, dst_entity, uses_parameters = a
 
                     if name not in sample:
                         raise Exception(
@@ -153,7 +151,7 @@ def generator(dir, feature_names, output_names, adj_names, interleave_names, add
                                     '.\n However, "' + destination + '" was found which is of type "' + entities[
                                         destination] + '" instead of ' + dst_entity)
 
-                            if ordered == 'True':   seq += range(0, len(sources))
+                            seq += range(0, len(sources))
 
                             # check if this adjacency contains extra parameters. This would mean that the sources array would be of shape p0:[[l0,params],[l1,params]...]
                             if isinstance(sources[0], list):
@@ -181,9 +179,8 @@ def generator(dir, feature_names, output_names, adj_names, interleave_names, add
                         data['dst_' + name] = dst_idx
 
                         # add sequence information
-                        if ordered == 'True':
-                            data['seq_' + src_entity + '_' + dst_entity] = seq
-                            dict['seq_' + src_entity + '_' + dst_entity] = seq
+                        data['seq_' + src_entity + '_' + dst_entity] = seq
+                        dict['seq_' + src_entity + '_' + dst_entity] = seq
 
                         # remains to check that all adjacencies of the same type have params or not (not a few of them)!!!!!!!!!!
                         if parameters != []:    data['params_' + name] = parameters
@@ -223,14 +220,10 @@ def generator(dir, feature_names, output_names, adj_names, interleave_names, add
                         data['indices_' + entity + '_to_' + dst_entity] = np.where(result == id)[0].tolist()
 
                 yield data if not training else data, output
-                # if not training:
-                #    yield data
-                # else:
-                #    yield data, output
 
 
         except KeyboardInterrupt:
             sys.exit(1)
 
         except Exception as inf:
-            tf.compat.v1.logging.error('IGNNITION: ' + str(inf))
+            tf.compat.v1.logging.error('IGNNITION2: ' + str(inf))

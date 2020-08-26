@@ -36,107 +36,111 @@
     ],
 
     "message_passing":
-        {
-            "num_iterations": 8,
-            "architecture":
-            [
-                {
-                    "step_name": "step1",
-                    "mp_step":
-                    [
-                        {
-                            "type": "multi_source",
-                            "source_entity": "link",
-                            "destination_entity":"path",
-                            "adj_vector": "adj_links_paths",
-                            "message": 
-                            [
-                                {
-                                    "type": "direct_assignation"
-                                }
-                            ],
-                            "aggregation": "combination"
-                        },
-                        {
-                            "type": "multi_source",
-                            "source_entity": "node",
-                            "destination_entity":"path",
-                            "adj_vector": "adj_nodes_paths",
-                            "message": 
-                            [
-                                {
-                                    "type": "direct_assignation"
-                                }
-                            ],
-                            "aggregation": "combination"
-                        }
-                    ]
-                },
-                {
-                    "step_name": "step2",
-                    "mp_step":
-                    [
-                        {
-                            "type": "single_source",
-                            "source_entity": "path",
-                            "destination_entity":"link",
-                            "adj_vector": "adj_paths_links",
-                            "message": 
-                            [
-                                {
-                                    "type": "direct_assignation"
-                                }
-                            ],
-                            "aggregation": "sum",
-                            "update": 
-                            {
-                                "type": "recurrent_neural_network",
-                                "nn_name": "recurrent1"
-                            }
-                            
-                        },
-                        {
-                            "type": "single_source",
-                            "source_entity": "path",
-                            "destination_entity":"node",
-                            "adj_vector": "adj_paths_nodes",
-                            "message": 
-                            [
-                                {
-                                    "type": "direct_assignation"
-                                }
-                            ],
-                            "aggregation": "sum",
-                            "update": 
-                            {
-                                "type": "recurrent_neural_network",
-                                "nn_name": "recurrent1"
-                            }
-                            
-                        }
-                    ]
-                }
-            ],
-            "combined_message_passing_options":
-            [
-                {
-                    "step": "step1",
-                    "destination_entity": "path",
-                    "combination":
+    {
+        "num_iterations": 8,
+        "stages":
+        [
+            {
+                "stage_name": "step1",
+                "stage_mp":
+                [
                     {
-                        "combination_type":"interleave",
-                        "interleave_definition": "path_interleave"
-                    },
-                    "update": 
-                    {
-                        "type": "recurrent_neural_network",
-                        "nn_name": "recurrent1"
+                        "destination_entity":"path",
+                        "source_entities": 
+                        [
+                            {
+                                "name": "link",
+                                "adj_vector": "adj_links_paths",
+                                "message": 
+                                [
+                                    {
+                                        "type": "direct_assignation"
+                                    }
+                                ]
+                            },
+                            {
+                                "name": "node",
+                                "adj_vector": "adj_nodes_paths",
+                                "message": 
+                                [
+                                    {
+                                        "type": "direct_assignation"
+                                    }
+                                ]
+                            }
+                        ],
+                        "aggregation":
+                        {
+                            "type": "interleave",
+                            "interleave_definition": "path_interleave"
+                        },
+                        "update": 
+                        {
+                            "type": "recurrent_neural_network",
+                            "nn_name": "recurrent1"
+                        }
                     }
-                }
-            ]
-        },
-
-
+                ]
+            },
+            {
+                "stage_name": "step2",
+                "stage_mp":
+                [
+                    {
+                        "destination_entity":"link",
+                        "source_entities":
+                        [
+                            {
+                                "name": "path",
+                                "adj_vector": "adj_paths_links",
+                                "message": 
+                                [
+                                    {
+                                        "type": "direct_assignation"
+                                    }
+                                ]
+                            }
+                        ],
+                        "aggregation": 
+                        {
+                            "type": "sum"
+                        },
+                        "update": 
+                        {
+                            "type": "recurrent_neural_network",
+                            "nn_name": "recurrent1"
+                        }
+                        
+                    },
+                    {
+                        "destination_entity":"node",
+                        "source_entities":
+                        [
+                            {
+                                "name": "path",
+                                "adj_vector": "adj_paths_nodes",
+                                "message": 
+                                [
+                                    {
+                                        "type": "direct_assignation"
+                                    }
+                                ]
+                            }   
+                        ],
+                        "aggregation":
+                        {
+                            "type": "sum"
+                        },
+                        "update": 
+                        {
+                            "type": "recurrent_neural_network",
+                            "nn_name": "recurrent1"
+                        }
+                    }
+                ]
+            }
+        ]
+    },
     "readout": 
     [
         {

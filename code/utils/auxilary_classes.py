@@ -20,6 +20,7 @@
 
 
 import tensorflow as tf
+import tensorflow.keras.activations
 from keras import backend as K
 import sys
 
@@ -343,6 +344,65 @@ class Attention_aggr(Aggregation):
         return src_input
 
 
+class Conv_aggr(Aggregation):
+    """
+    A subclass that represents the Convolution aggreagtion operation
+
+    Methods:
+    ----------
+    calculate_input(self, comb_src_states, comb_dst_idx, dst_states, num_dst, kernel)
+        Caclulates the result of applying the convolution mechanism
+    """
+
+
+    def __init__(self, dict):
+        super(Conv_aggr, self).__init__(dict)
+
+        if 'activation_function' in dict:
+            self.activation_function = dict['activation_function']
+        else:
+            self.activation_function = 'relu'
+
+    def calculate_input(self, comb_src_states, comb_dst_idx, dst_states, num_dst, kernel):
+        """
+        Parameters
+        ----------
+        comb_src_states:    tensor
+            Source hs
+        comb_dst_idx:   tensor
+            Destination indexes to be combined with (src -> dst)
+        dst_states: tensor
+            Destination hs
+
+        num_dst:    int
+            Number of destination entity nodes
+        kernel:    tf object
+            Kernel1 object to transform the source's hs shape
+        """
+
+        # comb_src_states = N x F    kernel = F x F
+        weighted_input = K.dot(comb_src_states, kernel)
+
+        # each destination sums all its neighbours
+        neighbours_sum = tf.math.unsorted_segment_sum(weighted_input, comb_dst_idx, num_dst) #1 vector per destination
+
+        # sum the destination state itself
+        total_sum = tf.math.add(neighbours_sum, dst_states)
+
+        # obtain the degrees of each dst node
+        deg = tf.math.unsorted_segment_sum(tf.ones_like(comb_dst_idx), comb_dst_idx, num_dst)
+        deg = tf.cast(deg, dtype=tf.float32)
+
+        # normalize D^-1 * total_sum
+        normalized_val = tf.math.divide(total_sum, tf.reshape(deg, (-1,1)))
+
+        # apply the non-linearity
+        activation_func = getattr(tf.keras.activations, self.activation_function)
+        return activation_func(normalized_val)
+
+
+
+
 class Interleave_aggr(Aggregation):
     """
     A subclass that represents the Sum aggreagtion operation
@@ -495,6 +555,8 @@ class Message_Passing:
             return Sum_aggr(dict)
         elif dict['type'] == 'attention':
             return Attention_aggr(dict)
+        elif dict['type'] == 'convolution':
+            return Conv_aggr(dict)
         else:
             return Aggregation(dict)
 

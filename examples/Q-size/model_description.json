@@ -200,16 +200,16 @@
         "loss": "MeanSquaredError",
         "optimizer":
         {
-            "type": "Adam"
-        },
-        "schedule": 
-        {
-            "type": "ExponentialDecay",
-            "initial_learning_rate":0.001,
-            "decay_steps":82000,
-            "decay_rate":0.8,
-            "staircase": "True"
-        }
+            "type": "Adam",
+            "schedule": 
+            {
+                "type": "ExponentialDecay",
+                "initial_learning_rate":0.001,
+                "decay_steps":82000,
+                "decay_rate":0.8,
+                "staircase": "True"
+            }
+        } 
     }
 
 }

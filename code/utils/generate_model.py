@@ -164,8 +164,6 @@ def input_fn(data_dir, shuffle=False, training=True):
                                                     interleave_list,
                                                     unique_additional_input, training, shuffle))
 
-        # ds = ds.batch(2)
-
         with tf.name_scope('normalization') as _:
             if training:
                 ds = ds.map(lambda x, y: normalization(x, feature_list, output_names, output_normalizations, y))
@@ -237,7 +235,7 @@ class ComnetModel(tf.keras.Model):
                             operations = src.message_formation
                             src_name = src.name
                             counter = 0
-
+                            output_shape = int(self.dimensions[src_name])   # default if operation is direct_assignation
                             for operation in operations:
                                 if operation.type == 'feed_forward_nn':
                                     var_name = src_name + "_to_" + dst_name + '_message_creation_' + str(counter)
@@ -264,13 +262,33 @@ class ComnetModel(tf.keras.Model):
                                     if operation.output_name != 'None':
                                         self.save_global_variable(operation.output_name + '_dim', output_shape)
 
-                                    self.save_global_variable("final_message_dim_" + src.adj_vector, output_shape)
 
-                                # if the operation is direct assignation, then the shape doesn't change
-                                else:
-                                    self.save_global_variable("final_message_dim_" + src.adj_vector, int(self.dimensions[src_name]))
+                                self.save_global_variable("final_message_dim_" + src.adj_vector, output_shape)
 
                             counter += 1
+
+
+
+                    with tf.name_scope('aggregation_models') as _:
+                        aggregation = message.aggregation
+                        F_dst = int(self.dimensions[dst_name])
+                        F_src = int(output_shape)
+
+                        if aggregation.type == 'attention':
+
+                            self.kernel1 = self.add_weight(shape=(F_src, F_src))
+                            self.kernel2 = self.add_weight(shape=(F_dst, F_src))
+                            self.attn_kernel = self.add_weight(shape=(2 * F_dst, 1))
+
+                        elif aggregation.type == 'convolution':
+                            if F_dst != F_src:
+                                tf.compat.v1.logging.error(
+                                    'IGNNITION: When doing the a convolution, both the dimension of the messages sent and the destination hidden states should match. '
+                                    'In this case, however,the dimensions are ' + F_src + ' and ' + F_dst + ' of the source and destination respectively.')
+                                sys.exit(1)
+
+                            self.conv_kernel = self.add_weight(shape=(F_dst, F_dst))
+
 
                     # -----------------------------
                     # Creation of the update models
@@ -538,18 +556,11 @@ class ComnetModel(tf.keras.Model):
 
                                     # attention aggreagation
                                     elif aggr.type == 'attention':
-                                        F2 = int(self.dimensions[mp.destination_entity])
-                                        kernel1 = self.add_weight(shape=(F1, F1))  
-                                        kernel2 = self.add_weight(shape=(F2, F1))
-                                        attn_kernel = self.add_weight(shape=(2 * F1, 1))
-                                        #check F1, if we use a function that changes the message's size.
+                                        src_input = aggr.calculate_input(comb_src_states, comb_dst_idx, dst_states, comb_seq, num_dst, self.kernel1, self.kernel2, self.attn_kernel)
 
-                                        src_input = aggr.calculate_input(comb_src_states, comb_dst_idx, dst_states, comb_seq, num_dst, kernel1, kernel2, attn_kernel)
-
-                                    # convolutional aggregation
-                                    elif aggr.type == 'convolutional':
-                                        print("Here we would do a convolution")
-
+                                    # convolutional aggregation (the messages sent by the destination must have the same shape as the destinations)
+                                    elif aggr.type == 'convolution':
+                                        src_input = aggr.calculate_input(comb_src_states, comb_dst_idx, dst_states, num_dst, self.conv_kernel)
 
                                     elif aggr.type == 'interleave':
                                         # place each of the messages into the right spot in the sequence defined
@@ -566,7 +577,7 @@ class ComnetModel(tf.keras.Model):
                                     if update_model.type == "recurrent_nn":
                                         model = self.get_global_variable(str(dst_name) + '_update')
 
-                                        if aggr.type == 'sum' or aggr.type == 'attention' or aggr.type == 'convolutional':
+                                        if aggr.type == 'sum' or aggr.type == 'attention' or aggr.type == 'convolution':
                                             new_state = update_model.model.perform_unsorted_update(model, src_input, old_state)
 
                                         # if the aggregation was ordered or concat
@@ -796,8 +807,7 @@ def model_fn(features, labels, mode):
     logging_hook = tf.estimator.LoggingTensorHook(
         {"Loss": loss,
          "Regularization loss": regularization_loss,
-         "Total loss": total_loss,
-         "Prediction": predictions}
+         "Total loss": total_loss}
         , every_n_iter=10)
 
     return tf.estimator.EstimatorSpec(mode,

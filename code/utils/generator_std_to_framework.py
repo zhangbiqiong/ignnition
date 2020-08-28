@@ -226,4 +226,4 @@ def generator(dir, feature_names, output_names, adj_names, interleave_names, add
             sys.exit(1)
 
         except Exception as inf:
-            tf.compat.v1.logging.error('IGNNITION2: ' + str(inf))
+            tf.compat.v1.logging.error('IGNNITION: ' + str(inf))

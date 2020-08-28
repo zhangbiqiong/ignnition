@@ -162,7 +162,7 @@
                                                 "type": 
                                                 {
                                                     "type": "string",
-                                                    "enum": ["sum", "ordered", "attention", "concat", "interleave"]
+                                                    "enum": ["sum", "ordered", "attention", "concat", "interleave", "convolution"]
                                                 },
                                                 "concat_axis": {
                                                     "description": "Define how to concatenate the messages together",
@@ -171,6 +171,10 @@
                                                 },
                                                 "interleave_definition": {
                                                     "description": "Descrives how the interleaving is done",
+                                                    "type": "string"
+                                                },
+                                                "activation_function": {
+                                                    "description": "Activation function to use for convoluting",
                                                     "type": "string"
                                                 }
                                             },

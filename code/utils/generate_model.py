@@ -43,7 +43,7 @@ def set_model_info(model_description):
     model_info = model_description
 
 
-def normalization(x, feature_list, output_names, output_normalizations, y=None):
+def normalization(x, feature_list, output_name, output_normalization, y=None):
     """
     Parameters
     ----------
@@ -59,6 +59,7 @@ def normalization(x, feature_list, output_names, output_normalizations, y=None):
         Maps each feature or label with its normalization strategy if any
     """
 
+    # input data
     for f in feature_list:
         f_name = f.name
         norm_type = f.normalization
@@ -70,25 +71,31 @@ def normalization(x, feature_list, output_names, output_normalizations, y=None):
                     'IGNNITION: The normalization function ' + str(norm_type) + ' is not defined in the main file.')
                 sys.exit(1)
 
-    # this normalization is only ready for one single output !!!
-    if y != None:  # if we have labels to normalize
-        n = len(output_names)
-        for i in range(n):
-            norm_type = output_normalizations[i]
 
-            if str(norm_type) != 'None':
-                try:
-                    y = eval(norm_type)(y, output_names[i])
-                except:
-                    tf.compat.v1.logging.error(
-                        'IGNNITION: The normalization function ' + str(norm_type) + ' is not defined in the main file.')
-                    sys.exit(1)
+    # output
+    if str(output_normalization) != 'None':
+        try:
+            y = eval(output_normalization)(y, output_name)
+        except:
+            tf.compat.v1.logging.error(
+                'IGNNITION: The normalization function ' + str(output_normalization) + ' is not defined in the main file.')
+            sys.exit(1)
+
         return x, y
 
     return x
 
 
-def input_fn(data_dir, shuffle=False, training=True):
+# BATCHING
+def batching_func(it, batch_size=32):
+    with tf.name_scope("transformation_func"):
+         vs = [it.get_next() for _ in range(batch_size)]
+         xs = [v[0] for v in vs]
+         ys = [v[1] for v in vs]
+
+         return (xs, ys)
+
+def input_fn(data_dir, shuffle=False, training=True, batch_size = 1):
     """
     Parameters
     ----------
@@ -105,11 +112,11 @@ def input_fn(data_dir, shuffle=False, training=True):
     """
     with tf.name_scope('get_data') as _:
         feature_list = model_info.get_all_features()
-        adjecency_info = model_info.get_adjecency_info()
+        adjacency_info = model_info.get_adjecency_info()
         entity_list = model_info.get_entities()
         interleave_list = model_info.get_interleave_tensors()
         interleave_sources = model_info.get_interleave_sources()
-        output_names, output_normalizations, _ = model_info.get_output_info()
+        output_name, output_normalization, _ = model_info.get_output_info()
         additional_input = model_info.get_additional_input_names()
         unique_additional_input = [a for a in additional_input if a not in feature_list]
 
@@ -126,7 +133,7 @@ def input_fn(data_dir, shuffle=False, training=True):
             types[f_name] = tf.float32
             shapes[f_name] = tf.TensorShape(None)
 
-        for a in adjecency_info:
+        for a in adjacency_info:
             types['src_' + a[0]] = tf.int64
             shapes['src_' + a[0]] = tf.TensorShape([None])
             types['dst_' + a[0]] = tf.int64
@@ -151,7 +158,7 @@ def input_fn(data_dir, shuffle=False, training=True):
                                                 (types, tf.float32),
                                                 (shapes, tf.TensorShape(None)),
                                                 args=(
-                                                    data_dir, feature_names, output_names, adjecency_info,
+                                                    data_dir, feature_names, output_name, adjacency_info,
                                                     interleave_list,
                                                     unique_additional_input, training, shuffle))
 
@@ -160,24 +167,32 @@ def input_fn(data_dir, shuffle=False, training=True):
                                                 (types),
                                                 (shapes),
                                                 args=(
-                                                    data_dir, feature_names, output_names, adjecency_info,
+                                                    data_dir, feature_names, output_name, adjacency_info,
                                                     interleave_list,
                                                     unique_additional_input, training, shuffle))
 
+        #ds = ds.batch(32)
         with tf.name_scope('normalization') as _:
             if training:
-                ds = ds.map(lambda x, y: normalization(x, feature_list, output_names, output_normalizations, y))
+                ds = ds.map(lambda x, y: normalization(x, feature_list, output_name, output_normalization, y))
 
             else:
-                ds = ds.map(lambda x: normalization(x, feature_list, output_names, output_normalizations))
+                ds = ds.map(lambda x: normalization(x, feature_list, output_name, output_normalization))
 
             ds = ds.repeat()
+
         with tf.name_scope('create_iterator') as _:
             if training:
+                #ds = ds.batch(32,  drop_remainder=True)
                 ds = ds.prefetch(100)
+
+                #ds = tf.compat.v1.data.make_initializable_iterator(ds)
+
+                ds = tf.compat.v1.data.make_one_shot_iterator(ds)
+                #ds = transformation_func(ds, feature_list, adjacency_info, entity_list, interleave_sources, unique_additional_input, batch_size=1)
+                ds = batching_func(ds, batch_size= batch_size)
             else:
                 ds = tf.compat.v1.data.make_initializable_iterator(ds)
-
 
     return ds
 
@@ -381,7 +396,6 @@ class ComnetModel(tf.keras.Model):
         input:    dict
             Dictionary with all the tensors with the input information of the model
         """
-
         # -----------------------------------------------------------------------------------
         # HIDDEN STATE CREATION
         entities = model_info.entities
@@ -625,6 +639,7 @@ class ComnetModel(tf.keras.Model):
                     else:
                         return result
 
+
                 elif operation.type == "pooling":
                     # obtain the input of the pooling operation
                     pooling_input = self.get_global_var_or_input(operation.input[0], input)
@@ -694,7 +709,6 @@ class ComnetModel(tf.keras.Model):
         return getattr(self, var_name)
 
 
-
 def model_fn(features, labels, mode):
     """
     Parameters
@@ -706,12 +720,30 @@ def model_fn(features, labels, mode):
     mode:    tensor
         Either train, eval or predict
     """
-
     # create the model
-    model = ComnetModel()
+    #model = ComnetModel()
 
-    # peform the predictions
-    predictions= model(features, training=(mode == tf.estimator.ModeKeys.TRAIN))
+    # manually do the batching
+    batch_size = len(features)
+    for i in range(batch_size):
+         f = features[i]
+         l = labels[i]
+
+         model = ComnetModel()
+         aux = tf.reshape(model(f, training=(mode == tf.estimator.ModeKeys.TRAIN)), [-1])
+
+         if i == 0:
+             final_labels = l
+             predictions = aux
+
+         else:
+             final_labels = tf.concat([final_labels, l], axis=0)
+             predictions = tf.concat([predictions, aux], axis=0)
+
+    labels = final_labels
+
+
+    #predictions = model(features, training=(mode == tf.estimator.ModeKeys.TRAIN))
 
     # prediction mode. Denormalization is done if so specified
     if mode == tf.estimator.ModeKeys.PREDICT:
@@ -745,13 +777,12 @@ def model_fn(features, labels, mode):
     # evaluation mode
     if mode == tf.estimator.ModeKeys.EVAL:
         # perform denormalization if defined
-        output_names, _, output_denorm = model_info.get_output_info()
+        output_name, _, output_denorm = model_info.get_output_info()
         try:
-            labels = eval(output_denorm[0])(labels, output_names[0])
-            predictions = eval(output_denorm[0])(predictions, output_names[0])
+            labels = eval(output_denorm)(labels, output_name)
+            predictions = eval(output_denorm)(predictions, output_name)
         except:
-            tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_names[
-                0] + ' was not defined. The output (and statistics) will use the normalized values.')
+            tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_name + ' was not defined. The output (and statistics) will use the normalized values.')
 
         # metrics calculations
         label_mean = tf.keras.metrics.Mean()
@@ -808,6 +839,8 @@ def model_fn(features, labels, mode):
         {"Loss": loss,
          "Regularization loss": regularization_loss,
          "Total loss": total_loss}
+         #"predictions": predictions,
+         #"labels": labels}
         , every_n_iter=10)
 
     return tf.estimator.EstimatorSpec(mode,

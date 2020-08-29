@@ -433,10 +433,10 @@ class Model_information:
         return self.readout_op
 
     def get_output_info(self):
-        result_names = [o.label for o in self.readout_op if o.type == 'predict']
-        result_norm = [o.label_normalization for o in self.readout_op if o.type == 'predict']
-        result_denorm = [o.label_denormalization for o in self.readout_op if o.type == 'predict']
-        return result_names, result_norm, result_denorm
+        result_name = [o.label for o in self.readout_op if o.type == 'predict'][0] #there must be only one
+        result_norm = [o.label_normalization for o in self.readout_op if o.type == 'predict'][0]
+        result_denorm = [o.label_denormalization for o in self.readout_op if o.type == 'predict'][0]
+        return result_name, result_norm, result_denorm
 
     def get_all_features(self):
         return reduce(lambda accum, e: accum + e.features, self.entities, [])

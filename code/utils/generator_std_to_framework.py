@@ -50,7 +50,7 @@ def make_indices(entities):
     return counter, indices
 
 
-def generator(dir, feature_names, output_names, adj_names, interleave_names, additional_input, training,
+def generator(dir, feature_names, output_name, adj_names, interleave_names, additional_input, training,
               shuffle=False):
     """
     Parameters
@@ -74,7 +74,7 @@ def generator(dir, feature_names, output_names, adj_names, interleave_names, add
 
     dir = dir.decode('ascii')
     feature_names = [x.decode('ascii') for x in feature_names]
-    output_names = [o.decode('ascii') for o in output_names]
+    output_name = output_name.decode('ascii')
     adj_names = [[x[0].decode('ascii'), x[1].decode('ascii'), x[2].decode('ascii'), x[3].decode('ascii')] for x in adj_names]
     interleave_names = [[i[0].decode('ascii'), i[1].decode('ascii')] for i in interleave_names]
     additional_input = [x.decode('ascii') for x in additional_input]
@@ -115,16 +115,15 @@ def generator(dir, feature_names, output_names, adj_names, interleave_names, add
 
                 # read the output values if we are training
                 if training:
-                    for name in output_names:
-                        if name not in sample:
-                            raise Exception('A list for the output named "' + str(
-                                name) + '" was not found although being expected.')
-                        else:
-                            value = sample[name]
-                            if not isinstance(value, list):
-                                value = [value]
+                    if output_name not in sample:
+                        raise Exception('A list for the output named "' + str(
+                            output_name) + '" was not found although being expected.')
+                    else:
+                        value = sample[output_name]
+                        if not isinstance(value, list):
+                            value = [value]
 
-                            output += value
+                        output += value
 
                 dict = {}
 

@@ -152,7 +152,7 @@ def train_and_evaluate(model):
     )
 
     train_spec = tf.estimator.TrainSpec(
-        input_fn=lambda: input_fn(filenames_train, shuffle=str_to_bool(CONFIG['TRAINING_OPTIONS']['shuffle_train_samples'])),
+        input_fn=lambda: input_fn(filenames_train, shuffle=str_to_bool(CONFIG['TRAINING_OPTIONS']['shuffle_train_samples']), batch_size = int(CONFIG['TRAINING_OPTIONS']['batch_size'])),
         max_steps=int(CONFIG['TRAINING_OPTIONS']['train_steps']))
 
     eval_spec = tf.estimator.EvalSpec(

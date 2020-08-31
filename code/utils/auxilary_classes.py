@@ -831,10 +831,10 @@ class Feed_forward_Layer:
         self.type = type
         self.parameters = parameters
         if 'kernel_regularizer' in parameters:
-            parameters['kernel_regularizer'] = tf.keras.regularizers.l2(float(parameters['kernel_regularizer']))
+            self.parameters['kernel_regularizer'] = tf.keras.regularizers.l2(float(parameters['kernel_regularizer']))
 
         if 'activation' in parameters and parameters['activation'] == 'None':
-            parameters['activation'] = None
+            self.parameters['activation'] = None
 
     def get_tensorflow_object(self, l_previous):
         """
@@ -847,6 +847,7 @@ class Feed_forward_Layer:
         c_ = getattr(tf.keras.layers, self.type)
         layer = c_(**self.parameters)(l_previous)
         return layer
+
 
     def get_tensorflow_object_last(self, l_previous, destination_units):
         """

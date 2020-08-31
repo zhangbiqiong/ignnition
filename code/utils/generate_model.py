@@ -71,14 +71,14 @@ def normalization(x, feature_list, output_name, output_normalization, y=None):
                     'IGNNITION: The normalization function ' + str(norm_type) + ' is not defined in the main file.')
                 sys.exit(1)
 
-
     # output
-    if str(output_normalization) != 'None':
+    if str(output_normalization) != 'None' and y != None:
         try:
             y = eval(output_normalization)(y, output_name)
         except:
             tf.compat.v1.logging.error(
-                'IGNNITION: The normalization function ' + str(output_normalization) + ' is not defined in the main file.')
+                'IGNNITION: The normalization function ' + str(
+                    output_normalization) + ' is not defined in the main file.')
             sys.exit(1)
 
         return x, y
@@ -87,15 +87,19 @@ def normalization(x, feature_list, output_name, output_normalization, y=None):
 
 
 # BATCHING
-def batching_func(it, batch_size=32):
+def batching_func(it, batch_size=32, training = True):
     with tf.name_scope("transformation_func"):
-         vs = [it.get_next() for _ in range(batch_size)]
-         xs = [v[0] for v in vs]
-         ys = [v[1] for v in vs]
+        vs = [it.get_next() for _ in range(batch_size)]
 
-         return (xs, ys)
+        if training:
+            xs = [v[0] for v in vs]
+            ys = [v[1] for v in vs]
+            return (xs, ys)
+        else:
+            return (vs)
 
-def input_fn(data_dir, shuffle=False, training=True, batch_size = 1):
+
+def input_fn(data_dir, shuffle=False, training=True, batch_size=1):
     """
     Parameters
     ----------
@@ -171,26 +175,23 @@ def input_fn(data_dir, shuffle=False, training=True, batch_size = 1):
                                                     interleave_list,
                                                     unique_additional_input, training, shuffle))
 
-        #ds = ds.batch(32)
+
         with tf.name_scope('normalization') as _:
             if training:
-                ds = ds.map(lambda x, y: normalization(x, feature_list, output_name, output_normalization, y))
+                ds = ds.map(lambda x, y: normalization(x, feature_list, output_name, output_normalization, y),
+                            num_parallel_calls=4)
 
             else:
-                ds = ds.map(lambda x: normalization(x, feature_list, output_name, output_normalization))
+                ds = ds.map(lambda x: normalization(x, feature_list, output_name, output_normalization),
+                            num_parallel_calls=4)
 
             ds = ds.repeat()
 
         with tf.name_scope('create_iterator') as _:
             if training:
-                #ds = ds.batch(32,  drop_remainder=True)
-                ds = ds.prefetch(100)
-
-                #ds = tf.compat.v1.data.make_initializable_iterator(ds)
-
+                ds = ds.prefetch(10)
                 ds = tf.compat.v1.data.make_one_shot_iterator(ds)
-                #ds = transformation_func(ds, feature_list, adjacency_info, entity_list, interleave_sources, unique_additional_input, batch_size=1)
-                ds = batching_func(ds, batch_size= batch_size)
+                ds = batching_func(ds, batch_size=batch_size, training = True)
             else:
                 ds = tf.compat.v1.data.make_initializable_iterator(ds)
 
@@ -206,8 +207,6 @@ def r_squared(labels, predictions):
     predictions:    tensor
         Predictions of the model
     """
-    labels = tf.reshape(labels, [-1])
-    predictions = tf.reshape(predictions, [-1])
     total_error = tf.reduce_sum(tf.square(labels - tf.reduce_mean(labels)))
     unexplained_error = tf.reduce_sum(tf.square(labels - predictions))
     r_sq = 1.0 - tf.truediv(unexplained_error, total_error)
@@ -250,7 +249,7 @@ class ComnetModel(tf.keras.Model):
                             operations = src.message_formation
                             src_name = src.name
                             counter = 0
-                            output_shape = int(self.dimensions[src_name])   # default if operation is direct_assignation
+                            output_shape = int(self.dimensions[src_name])  # default if operation is direct_assignation
                             for operation in operations:
                                 if operation.type == 'feed_forward_nn':
                                     var_name = src_name + "_to_" + dst_name + '_message_creation_' + str(counter)
@@ -266,7 +265,7 @@ class ComnetModel(tf.keras.Model):
                                         elif i == 'edge_params':
                                             input_dim += int(src.extra_parameters)  # size of the extra parameter
                                         else:
-                                            dimension = getattr(self, i + '_dim')
+                                            dimension = self.get_global_variable(i + '_dim')
                                             input_dim += dimension
 
                                     model, output_shape = operation.model.construct_tf_model(var_name, input_dim)
@@ -277,12 +276,9 @@ class ComnetModel(tf.keras.Model):
                                     if operation.output_name != 'None':
                                         self.save_global_variable(operation.output_name + '_dim', output_shape)
 
-
-                                self.save_global_variable("final_message_dim_" + src.adj_vector, output_shape)
+                            self.save_global_variable("final_message_dim_" + src.adj_vector, output_shape)
 
                             counter += 1
-
-
 
                     with tf.name_scope('aggregation_models') as _:
                         aggregation = message.aggregation
@@ -290,7 +286,6 @@ class ComnetModel(tf.keras.Model):
                         F_src = int(output_shape)
 
                         if aggregation.type == 'attention':
-
                             self.kernel1 = self.add_weight(shape=(F_src, F_src))
                             self.kernel2 = self.add_weight(shape=(F_dst, F_src))
                             self.attn_kernel = self.add_weight(shape=(2 * F_dst, 1))
@@ -303,7 +298,6 @@ class ComnetModel(tf.keras.Model):
                                 sys.exit(1)
 
                             self.conv_kernel = self.add_weight(shape=(F_dst, F_dst))
-
 
                     # -----------------------------
                     # Creation of the update models
@@ -337,18 +331,19 @@ class ComnetModel(tf.keras.Model):
 
                                 # calculate the message dimensionality (considering that they all have the same dim)
                                 # o/w, they are not combinable
-                                message_dimensionality = self.get_global_variable("final_message_dim_" + source_entities[0].adj_vector)
+                                message_dimensionality = self.get_global_variable(
+                                    "final_message_dim_" + source_entities[0].adj_vector)
 
                                 # if we are concatenating by message
                                 if mp.message_combination == 'concat' and mp.concat_axis == 2:
-                                    message_dimensionality = reduce(lambda accum, s: accum + int(getattr(self, "final_message_dim_" + s.adj_vector)),
+                                    message_dimensionality = reduce(lambda accum, s: accum + int(
+                                        getattr(self, "final_message_dim_" + s.adj_vector)),
                                                                     source_entities, 0)
 
-                                input_dim = message_dimensionality + dst_dim    #we will concatenate the sources and destinations
+                                input_dim = message_dimensionality + dst_dim  # we will concatenate the sources and destinations
 
-                                model, _ = model.construct_tf_model(var_name, input_dim, dst_dim, dst_name = dst_name)
+                                model, _ = model.construct_tf_model(var_name, input_dim, dst_dim, dst_name=dst_name)
                                 self.save_global_variable(var_name, model)
-
 
             # --------------------------------
             # Create the readout model
@@ -358,9 +353,9 @@ class ComnetModel(tf.keras.Model):
                 if operation.type == "predict" or operation.type == 'neural_network':
                     with tf.name_scope("readout_architecture"):
                         input_dim = reduce(lambda accum, i: accum + int(self.dimensions[i]), operation.input, 0)
-                        #model = operation.architecture.construct_tf_readout(counter, input_dim)
-                        model, _ = operation.architecture.construct_tf_model('readout_model' + str(counter), input_dim, is_readout = True)
-                        setattr(self, 'readout_model_' + str(counter), model)
+                        model, _ = operation.architecture.construct_tf_model('readout_model' + str(counter), input_dim,
+                                                                             is_readout=True)
+                        self.save_global_variable('readout_model_' + str(counter), model)
 
                     # save the dimensions of the output
                     if operation.type == 'neural_network':
@@ -385,9 +380,6 @@ class ComnetModel(tf.keras.Model):
                     self.dimensions[operation.output_name[1]] = self.dimensions[operation.input[1]]
 
                 counter += 1
-
-
-
 
     def call(self, input, training=False):
         """
@@ -424,7 +416,7 @@ class ComnetModel(tf.keras.Model):
                             dst_states = self.get_global_variable(str(dst_name) + '_state')
                             num_dst = input['num_' + dst_name]
 
-                            #with tf.name_scope('mp_to_' + dst_name + 's') as _:
+                            # with tf.name_scope('mp_to_' + dst_name + 's') as _:
                             with tf.name_scope(mp.source_entities[0].name + 's_to_' + dst_name + 's') as _:
                                 first_src = True
                                 with tf.name_scope('message') as _:
@@ -432,7 +424,8 @@ class ComnetModel(tf.keras.Model):
                                         src_name = src.name
 
                                         # prepare the information
-                                        src_idx, dst_idx, seq = input['src_' + src.adj_vector], input['dst_' + src.adj_vector], input['seq_' + src_name + '_' + dst_name]
+                                        src_idx, dst_idx, seq = input['src_' + src.adj_vector], input[
+                                            'dst_' + src.adj_vector], input['seq_' + src_name + '_' + dst_name]
                                         src_states = self.get_global_variable(str(src_name) + '_state')
 
                                         with tf.name_scope('create_message_' + src_name + '_to_' + dst_name) as _:
@@ -440,7 +433,7 @@ class ComnetModel(tf.keras.Model):
                                             dst_messages = tf.gather(dst_states, dst_idx)
                                             message_creation_models = src.message_formation
 
-                                            #by default, the source hs are the messages
+                                            # by default, the source hs are the messages
                                             final_messages = src_messages
 
                                             counter = 0
@@ -462,7 +455,7 @@ class ComnetModel(tf.keras.Model):
                                                                         input['params_' + src.adj_vector],
                                                                         tf.float32)
                                                                 else:
-                                                                    new_input = getattr(self, i + '_var')
+                                                                    new_input = self.get_global_variable(i + '_var')
 
                                                                 # accumulate the results
                                                                 if first:
@@ -474,7 +467,8 @@ class ComnetModel(tf.keras.Model):
                                                         with tf.name_scope('create_message') as _:
                                                             result = message_creator(input_nn)
                                                             if model.output_name != 'None':
-                                                                self.save_global_variable(model.output_name + 'var', result)
+                                                                self.save_global_variable(model.output_name + 'var',
+                                                                                          result)
 
                                                             final_messages = result  # by default, the message is always the result from the last operation
 
@@ -485,7 +479,7 @@ class ComnetModel(tf.keras.Model):
                                                 ids = tf.stack([dst_idx, seq], axis=1)
 
                                                 lens = tf.math.unsorted_segment_sum(tf.ones_like(dst_idx), dst_idx,
-                                                                                    num_dst)  # CHECK
+                                                                                    num_dst)
 
                                                 max_len = tf.reduce_max(seq) + 1
 
@@ -496,12 +490,9 @@ class ComnetModel(tf.keras.Model):
                                                 s = tf.scatter_nd(ids, final_messages,
                                                                   shape)  # find the input ordering it by sequence
 
-                                                # shape: num_dst x srcs for destination x dim(src)
-                                                s = tf.RaggedTensor.from_tensor(s, lens)
-
                                                 aggr = mp.aggregation
 
-                                            #now we concatenate them with the already calculated messages (considering the aggregation)
+                                            # now we concatenate them with the already calculated messages (considering the aggregation)
                                             if isinstance(aggr, Concat_aggr):
                                                 with tf.name_scope("concat_" + src_name) as _:
                                                     if first_src:
@@ -534,16 +525,14 @@ class ComnetModel(tf.keras.Model):
                                                 if first_src:
                                                     first_src = False
                                                     src_input = s  # destinations x sources_to_dest x dim_source
-                                                    comb_src_states, comb_dst_idx, comb_seq = final_messages, dst_idx, seq  #we need this for the attention and convolutional mechanism
+                                                    comb_src_states, comb_dst_idx, comb_seq = final_messages, dst_idx, seq  # we need this for the attention and convolutional mechanism
                                                     final_len = lens
-
-                                                    # dimension of one source (all must be the same)
-                                                    F1 = int(self.dimensions[src_name])
 
                                                 else:
                                                     # destinations x max_of_sources_to_dest_concat x dim_source
                                                     src_input = tf.concat([src_input, s], axis=1)
-                                                    comb_src_states = tf.concat([comb_src_states, final_messages], axis=0)
+                                                    comb_src_states = tf.concat([comb_src_states, final_messages],
+                                                                                axis=0)
                                                     comb_dst_idx = tf.concat([comb_dst_idx, dst_idx], axis=0)
 
                                                     # lens of each src-dst value
@@ -553,15 +542,11 @@ class ComnetModel(tf.keras.Model):
 
                                                     final_len = tf.math.add(final_len, lens)
 
-
-                                # transform it back to tensor
-                                src_input = src_input.to_tensor()
-
                                 # --------------
                                 # perform the actual aggregation
                                 aggr = mp.aggregation
 
-                                #if ordered, we dont need to do anything. Already in the right shape
+                                # if ordered, we dont need to do anything. Already in the right shape
 
                                 # sum aggregation
                                 with tf.name_scope('aggregation') as _:
@@ -570,16 +555,18 @@ class ComnetModel(tf.keras.Model):
 
                                     # attention aggreagation
                                     elif aggr.type == 'attention':
-                                        src_input = aggr.calculate_input(comb_src_states, comb_dst_idx, dst_states, comb_seq, num_dst, self.kernel1, self.kernel2, self.attn_kernel)
+                                        src_input = aggr.calculate_input(comb_src_states, comb_dst_idx, dst_states,
+                                                                         comb_seq, num_dst, self.kernel1, self.kernel2,
+                                                                         self.attn_kernel)
 
                                     # convolutional aggregation (the messages sent by the destination must have the same shape as the destinations)
                                     elif aggr.type == 'convolution':
-                                        src_input = aggr.calculate_input(comb_src_states, comb_dst_idx, dst_states, num_dst, self.conv_kernel)
+                                        src_input = aggr.calculate_input(comb_src_states, comb_dst_idx, dst_states,
+                                                                         num_dst, self.conv_kernel)
 
                                     elif aggr.type == 'interleave':
                                         # place each of the messages into the right spot in the sequence defined
                                         src_input = aggr.calculate_input(src_input, indices)
-
 
                                 # ---------------------------------------
                                 # update
@@ -592,13 +579,14 @@ class ComnetModel(tf.keras.Model):
                                         model = self.get_global_variable(str(dst_name) + '_update')
 
                                         if aggr.type == 'sum' or aggr.type == 'attention' or aggr.type == 'convolution':
-                                            new_state = update_model.model.perform_unsorted_update(model, src_input, old_state)
+                                            new_state = update_model.model.perform_unsorted_update(model, src_input,
+                                                                                                   old_state)
 
                                         # if the aggregation was ordered or concat
                                         else:
-                                            new_state = update_model.model.perform_sorted_update(model,src_input, dst_name, old_state, final_len, num_dst)
-
-                                        self.save_global_variable(str(dst_name) + '_state', new_state)
+                                            new_state = update_model.model.perform_sorted_update(model, src_input,
+                                                                                                 dst_name, old_state,
+                                                                                                 final_len, num_dst)
 
 
                                     # feed-forward update:
@@ -610,8 +598,9 @@ class ComnetModel(tf.keras.Model):
                                         # now we need to obtain for each adjacency the concatenation of the source and the destination
                                         update_input = tf.concat([src_input, old_state], axis=1)
                                         new_state = update(update_input)
-                                        self.save_global_variable(str(dst_name) + '_state', new_state)  #update the old state
 
+                                    self.save_global_variable(str(dst_name) + '_state',
+                                                              new_state)  # update the old state
 
         # -----------------------------------------------------------------------------------
         # READOUT PHASE
@@ -632,7 +621,7 @@ class ComnetModel(tf.keras.Model):
                             nn_input = tf.concat([nn_input, new_input], axis=1)
 
                     readout_nn = self.get_global_variable('readout_model_' + str(counter))
-                    result = readout_nn(nn_input, training = training)
+                    result = readout_nn(nn_input, training=training)
 
                     if operation.type == 'neural_network':
                         self.save_global_variable(operation.output_name + '_state', result)
@@ -668,7 +657,6 @@ class ComnetModel(tf.keras.Model):
 
                 counter += 1
 
-
     def get_global_var_or_input(self, var_name, input):
         """
         Parameters
@@ -684,8 +672,6 @@ class ComnetModel(tf.keras.Model):
         except:
             return input[var_name]
 
-
-
     # creates a new global variable
     def save_global_variable(self, var_name, var_value):
         """
@@ -697,7 +683,6 @@ class ComnetModel(tf.keras.Model):
             Tensor value of the new global variable
         """
         setattr(self, var_name, var_value)
-
 
     def get_global_variable(self, var_name):
         """
@@ -721,39 +706,35 @@ def model_fn(features, labels, mode):
         Either train, eval or predict
     """
     # create the model
-    #model = ComnetModel()
+    model = ComnetModel()
 
     # manually do the batching
     batch_size = len(features)
     for i in range(batch_size):
-         f = features[i]
-         l = labels[i]
+        f = features[i]
+        l = labels[i]
+        aux = tf.reshape(model(f, training=(mode == tf.estimator.ModeKeys.TRAIN)), [-1])
 
-         model = ComnetModel()
-         aux = tf.reshape(model(f, training=(mode == tf.estimator.ModeKeys.TRAIN)), [-1])
+        if i == 0:
+            final_labels = l
+            predictions = aux
 
-         if i == 0:
-             final_labels = l
-             predictions = aux
-
-         else:
-             final_labels = tf.concat([final_labels, l], axis=0)
-             predictions = tf.concat([predictions, aux], axis=0)
+        else:
+            final_labels = tf.concat([final_labels, l], axis=0)
+            predictions = tf.concat([predictions, aux], axis=0)
 
     labels = final_labels
 
-
-    #predictions = model(features, training=(mode == tf.estimator.ModeKeys.TRAIN))
+    # predictions = model(features, training=(mode == tf.estimator.ModeKeys.TRAIN))
 
     # prediction mode. Denormalization is done if so specified
     if mode == tf.estimator.ModeKeys.PREDICT:
-        output_names, _, output_denorm = model_info.get_output_info()  # for now suppose we only have one output type
-
+        output_name, _, output_denorm = model_info.get_output_info()  # for now suppose we only have one output type
         try:
-            predictions = eval(output_denorm[0])(predictions, output_names[0])
+            predictions = eval(output_denorm)(predictions, output_name)
         except:
-            tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_names[
-                0] + ' was not defined. The output will be normalized.')
+            tf.compat.v1.logging.warn(
+                'IGNNITION: A denormalization function for output ' + output_name + ' was not defined. The output will be normalized.')
 
         return tf.estimator.EstimatorSpec(
             mode, predictions={
@@ -782,7 +763,8 @@ def model_fn(features, labels, mode):
             labels = eval(output_denorm)(labels, output_name)
             predictions = eval(output_denorm)(predictions, output_name)
         except:
-            tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_name + ' was not defined. The output (and statistics) will use the normalized values.')
+            tf.compat.v1.logging.warn(
+                'IGNNITION: A denormalization function for output ' + output_name + ' was not defined. The output (and statistics) will use the normalized values.')
 
         # metrics calculations
         label_mean = tf.keras.metrics.Mean()
@@ -826,7 +808,7 @@ def model_fn(features, labels, mode):
         optimizer_params['learning_rate'] = s(**schedule)
         del optimizer_params['schedule']
 
-    #create the optimizer
+    # create the optimizer
     o = globals()[op_type]
     optimizer = o(
         **optimizer_params)  # create an instance of the optimizer class indicated by the user. Accepts any loss function from keras documentation
@@ -839,8 +821,6 @@ def model_fn(features, labels, mode):
         {"Loss": loss,
          "Regularization loss": regularization_loss,
          "Total loss": total_loss}
-         #"predictions": predictions,
-         #"labels": labels}
         , every_n_iter=10)
 
     return tf.estimator.EstimatorSpec(mode,

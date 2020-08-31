@@ -67,7 +67,7 @@ def generator(dir, feature_names, output_name, adj_names, interleave_names, addi
        First parameter is the name of the interleave, and the second the destination entity
     predict:     bool
         Indicates if we are making predictions, and thus no label is required.
-    shuffle:    int (optional)
+    shuffle:    bool
        Shuffle parameter of the dataset
 
     """
@@ -218,8 +218,10 @@ def generator(dir, feature_names, output_name, adj_names, interleave_names, addi
                         id = involved_entities[entity]
                         data['indices_' + entity + '_to_' + dst_entity] = np.where(result == id)[0].tolist()
 
-                yield data if not training else data, output
-
+                if not training:
+                    yield data
+                else:
+                    yield data, output
 
         except KeyboardInterrupt:
             sys.exit(1)

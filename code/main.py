@@ -21,7 +21,7 @@
 import sys
 import tensorflow as tf
 sys.path.append('./utils/')
-import framework_operations as framework
+import framework_operations as ignnition
 
 def normalization_queue_size(feature, feature_name):
     if feature_name == 'delay':
@@ -37,6 +37,14 @@ def normalization_queue_size(feature, feature_name):
 
     return feature
 
+def normalization_routenet(feature, feature_name):
+    if feature_name == 'traffic':
+        feature = (feature - 170) / 130
+    if feature_name == 'link_capacity':
+        feature = (feature - 25000) / 40000
+
+    return feature
+
 def log(feature, feature_name):
     return tf.math.log(feature)
 
@@ -45,10 +53,10 @@ def exp(feature, feature_name):
 
 
 def main():
-    model = framework.create_model()
-    #framework.debug(model)
-    framework.train_and_evaluate(model)
-    #framework.predict(model)
+    model = ignnition.create_model()
+    ignnition.debug(model)
+    ignnition.train_and_evaluate(model)
+    #ignnition.predict(model)
 
 if __name__ == "__main__":
         main ()

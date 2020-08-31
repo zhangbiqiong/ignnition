@@ -77,7 +77,7 @@ def find_dataset_dimensions(path):
 
             # if its either the entity or an adjacency (it is a dictionary, that is non-empty)
             elif v:
-                first_key = list(v.keys())[0]   # first key of the list
+                first_key = list(v.keys())[0]  # first key of the list
                 element = v[first_key]  # first value of the list (another list)
                 if (not isinstance(element[0], str)) and isinstance(element[0], list):
                     # the element[0][0] is the adjacency node. The element[0][1] is the edge information
@@ -152,7 +152,9 @@ def train_and_evaluate(model):
     )
 
     train_spec = tf.estimator.TrainSpec(
-        input_fn=lambda: input_fn(filenames_train, shuffle=str_to_bool(CONFIG['TRAINING_OPTIONS']['shuffle_train_samples']), batch_size = int(CONFIG['TRAINING_OPTIONS']['batch_size'])),
+        input_fn=lambda: input_fn(filenames_train,
+                                  shuffle=str_to_bool(CONFIG['TRAINING_OPTIONS']['shuffle_train_samples']),
+                                  batch_size=int(CONFIG['TRAINING_OPTIONS']['batch_size'])),
         max_steps=int(CONFIG['TRAINING_OPTIONS']['train_steps']))
 
     eval_spec = tf.estimator.EvalSpec(
@@ -197,20 +199,18 @@ def predict(model_info):
     with graph.as_default():
         model = ComnetModel()
 
-        it = input_fn(data_path,
-                      training=False)  # this should not return a label since we might not have one!!!!!!!!!!!!
+        it = input_fn(data_path,training=False)
         features = it.get_next()
 
         # this predictions still need to be denormalized (or to do the predictions with the estimators)
-        predictions = model(features, training=False)
+        pred = model(features, training=False)
 
         # automatic denormalization
-        output_names, _, output_denormalizations = model_info.get_output_info()  # for now suppose we only have one output type
+        output_name, _, output_denormalization = model_info.get_output_info()  # for now suppose we only have one output type
         try:
-            pred = eval(output_denormalizations[0])(predictions, output_names[0])
+            pred = eval(output_denormalization)(pred, output_name)
         except:
-            tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_names[
-                0] + ' was not defined. The output will be normalized.')
+            tf.compat.v1.logging.warn('IGNNITION: A denormalization function for output ' + output_name + ' was not defined. The output will be normalized.')
 
     with tf.compat.v1.Session(graph=graph) as sess:
         sess.run(tf.compat.v1.local_variables_initializer())
@@ -255,9 +255,9 @@ def debug(model_description):
 
     with graph.as_default():
         model = ComnetModel()
-        it = input_fn(filenames_train, training=False)
+        it = input_fn(filenames_train, training=False, batch_size = 1)
         features = it.get_next()
-        predictions = model(features, training=False)
+        pred= model(features, training=False)
 
     with tf.compat.v1.Session(graph=graph) as sess:
         sess.run(tf.compat.v1.local_variables_initializer())

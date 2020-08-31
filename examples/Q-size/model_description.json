@@ -144,12 +144,6 @@
     "readout": 
     [
         {
-            "type": "pooling",
-            "input": ["link_capacity"],
-            "type_pooling": "sum",
-            "output_name":"aux"
-        },
-        {
             "type": "predict",
             "input": ["path"],
             "label": "delay",

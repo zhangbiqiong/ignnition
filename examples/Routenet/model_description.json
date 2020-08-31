@@ -7,7 +7,8 @@
             "features":
             [
                 {
-                    "name": "link_capacity"
+                    "name": "link_capacity",
+                    "normalization": "normalization_routenet"
                 }
             ]
         },
@@ -17,7 +18,8 @@
             "features":
             [
                 {
-                    "name": "traffic"
+                    "name": "traffic",
+                    "normalization": "normalization_routenet"
                 }
             ]
         }
@@ -29,7 +31,7 @@
             "stages":
             [
                 {
-                    "stage_name": "step1",
+                    "stage_name": "stage1",
                     "stage_mp":
                     [
                         {   
@@ -61,7 +63,7 @@
                     ]
                 },
                 {
-                    "stage_name": "step2",
+                    "stage_name": "stage2",
                     "stage_mp":
                     [
                         {

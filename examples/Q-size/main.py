@@ -21,7 +21,7 @@
 import sys
 import tensorflow as tf
 sys.path.append('./utils/')
-import framework
+import framework_operations as ignnition
 
 
 def normalization_queue_size(feature, feature_name):
@@ -39,10 +39,10 @@ def normalization_queue_size(feature, feature_name):
     return feature
 
 def main():
-    model = framework.create_model()
-    framework.debug(model)
-    framework.train_and_evaluate(model)
-    #framework.predict(model)
+    model = ignnition.create_model()
+    ignnition.debug(model)
+    ignnition.train_and_evaluate(model)
+    #ignnition.predict(model)
 
 
 if __name__ == "__main__":

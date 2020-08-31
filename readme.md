@@ -78,20 +78,20 @@ Once these has been done, we must fill appropriately the main.py file. In this f
 
 1) Create the model
 ```
-model = framework.create_model()
+model = ignnition.create_model()
 ```
 2) Train and evaluate
 ```
-framework.train_and_evaluate(model)
+ignnition.train_and_evaluate(model)
 ```
 
 3) Generate debug model
 ```
-framework.debug(model)
+ignnition.debug(model)
 ```
 4) Make predictions
 ```
-framework.predict(model)
+ignnition.predict(model)
 ```
 
 Furthermore, both the normalization and denormalization functions should be defined in case the model_description.json uses any. In this case, it is important that the names used in the model_description.json match with the name of the function in the main.py.
